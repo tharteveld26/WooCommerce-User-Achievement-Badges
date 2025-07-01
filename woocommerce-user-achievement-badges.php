@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.5-Beta
+Version: 1.8.6-Beta
 Author: Aidus
 */
 
@@ -1233,79 +1233,83 @@ function tbc_badge_fields_callback($post) {
     </td>
 </tr>
     </table>
-<script>
-jQuery(function($){
-    $('#tbc_badge_type').on('change',function(){
-        $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
-        if(this.value==='product') $('.tbc-badge-product').show();
-        if(this.value==='category') $('.tbc-badge-category').show();
-        if(this.value==='spend') $('.tbc-badge-spend').show();
-    });
-    $('.tbc-upload-badge-icon').on('click',function(e){
-        e.preventDefault();
-        var $input = $('#tbc_badge_icon');
-        var $preview = $('.tbc-badge-media-preview');
-        var frame = wp.media({title:'Select Badge Icon',button:{text:'Use this icon'},multiple:false});
-        frame.on('select',function(){
-            var url = frame.state().get('selection').first().toJSON().url;
-            $input.val(url);
-            $preview.attr('src',url).show();
-        });
-        frame.open();
-    });
-    if(typeof $.fn.select2 !== 'undefined'){
-        $('.wc-product-search').select2({
-            width: '100%',
-            multiple: true,
-            ajax: {
-                url: tbc_badge_admin.ajax_url,
-                dataType: 'json',
-                delay: 250,
-                data: function(params){
-                    return {
-                        term: params.term,
-                        action: 'woocommerce_json_search_products_and_variations',
-                        security: tbc_badge_admin.search_products_nonce
-                    };
-                },
-                processResults: function(data){
-                    var results = [];
-                    $.each(data, function(id, text){ results.push({id:id, text:text}); });
-                    return {results:results};
-                }
-            },
-            allowClear: true,
-            dropdownParent: $('#tbc_badge_fields')
-        });
-        // Add Select2 to the category select as well
-        $('.wc-category-search').select2({
-            width: '100%',
-            multiple: true,
-            ajax: {
-                url: tbc_badge_admin.ajax_url,
-                dataType: 'json',
-                delay: 250,
-                data: function(params){
-                    return {
-                        term: params.term,
-                        action: 'tbc_search_product_categories',
-                        security: tbc_badge_admin.search_categories_nonce
-                    };
-                },
-                processResults: function(data){
-                    var results = [];
-                    $.each(data, function(id, text){ results.push({id:id, text:text}); });
-                    return {results:results};
-                }
-            },
-            placeholder: function(){
-                return $(this).data('placeholder') || 'Select a category';
-            }
-        });
-    }
-});
-</script>
 <?php
+    $tbc_badge_js = "jQuery(function($){
+        $('#tbc_badge_type').on('change',function(){
+            $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
+            if(this.value==='product') $('.tbc-badge-product').show();
+            if(this.value==='category') $('.tbc-badge-category').show();
+            if(this.value==='spend') $('.tbc-badge-spend').show();
+        });
+        $('.tbc-upload-badge-icon').on('click',function(e){
+            e.preventDefault();
+            var $input = $('#tbc_badge_icon');
+            var $preview = $('.tbc-badge-media-preview');
+            var frame = wp.media({title:'Select Badge Icon',button:{text:'Use this icon'},multiple:false});
+            frame.on('select',function(){
+                var url = frame.state().get('selection').first().toJSON().url;
+                $input.val(url);
+                $preview.attr('src',url).show();
+            });
+            frame.open();
+        });
+        if(typeof $.fn.select2 !== 'undefined'){
+            $('.wc-product-search').select2({
+                width: '100%',
+                multiple: true,
+                ajax: {
+                    url: tbc_badge_admin.ajax_url,
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params){
+                        return {
+                            term: params.term,
+                            action: 'woocommerce_json_search_products_and_variations',
+                            security: tbc_badge_admin.search_products_nonce
+                        };
+                    },
+                    processResults: function(data){
+                        var results = [];
+                        $.each(data, function(id, text){ results.push({id:id, text:text}); });
+                        return {results:results};
+                    }
+                },
+                allowClear: true,
+                dropdownParent: $('#tbc_badge_fields')
+            });
+            // Add Select2 to the category select as well
+            $('.wc-category-search').select2({
+                width: '100%',
+                multiple: true,
+                ajax: {
+                    url: tbc_badge_admin.ajax_url,
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params){
+                        return {
+                            term: params.term,
+                            action: 'tbc_search_product_categories',
+                            security: tbc_badge_admin.search_categories_nonce
+                        };
+                    },
+                    processResults: function(data){
+                        var results = [];
+                        $.each(data, function(id, text){ results.push({id:id, text:text}); });
+                        return {results:results};
+                    }
+                },
+                placeholder: function(){
+                    return $(this).data('placeholder') || 'Select a category';
+                }
+            });
+        }
+});";
+    if(function_exists('wc_enqueue_js')){
+        wc_enqueue_js($tbc_badge_js);
+    }else{
+        echo '<script>'.$tbc_badge_js.'</script>';
+    }
+
 }
 
 add_action('admin_enqueue_scripts', function($hook){
