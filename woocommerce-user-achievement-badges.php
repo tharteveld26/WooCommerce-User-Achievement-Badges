@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.4-Beta
+Version: 1.8.5-Beta
 Author: Aidus
 */
 
@@ -1161,45 +1161,28 @@ function tbc_badge_fields_callback($post) {
         <tr class="tbc-badge-product" style="display:<?php echo $type == 'product' ? 'table-row' : 'none'; ?>;">
             <th><label for="tbc_badge_product_id">Product</label></th>
             <td>
-                <select id="tbc_badge_product_id" name="tbc_badge_product_id[]" class="wc-product-search" multiple data-placeholder="Select a product">
+                <select id="tbc_badge_product_id" name="tbc_badge_product_id[]" class="wc-product-search" multiple data-placeholder="Search for a product">
                     <?php
-                    $args = [
-                        'post_type'      => 'product',
-                        'posts_per_page' => 100,
-                        'orderby'        => 'title',
-                        'order'          => 'ASC',
-                    ];
-                    $products = get_posts($args);
-                    foreach ($products as $product_post) {
-                        printf(
-                            '<option value="%d"%s>%s</option>',
-                            $product_post->ID,
-                            in_array($product_post->ID, $product_ids, true) ? ' selected' : '',
-                            esc_html($product_post->post_title)
-                        );
-                    }
-                    // Ensure any selected products beyond the query appear
                     foreach ($product_ids as $pid) {
-                        if (!array_filter($products, function($p) use($pid){ return $p->ID == $pid; })) {
-                            $post_obj = get_post($pid);
-                            if ($post_obj) {
-                                printf('<option value="%d" selected>%s</option>', $pid, esc_html($post_obj->post_title));
-                            }
+                        $post_obj = get_post($pid);
+                        if ($post_obj) {
+                            printf('<option value="%d" selected>%s</option>', $pid, esc_html($post_obj->post_title));
                         }
                     }
                     ?>
                 </select>
-                <span class="description">Please enter 3 or more characters</span>
             </td>
         </tr>
         <tr class="tbc-badge-category" style="display:<?php echo $type == 'category' ? 'table-row' : 'none'; ?>;">
             <th><label for="tbc_badge_category_id">Category</label></th>
             <td>
-                <select id="tbc_badge_category_id" name="tbc_badge_category_id[]" class="wc-category-search" multiple data-placeholder="Select a category">
+                <select id="tbc_badge_category_id" name="tbc_badge_category_id[]" class="wc-category-search" multiple data-placeholder="Search for a category">
                     <?php
-                    $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]);
-                    foreach ($terms as $term) {
-                        printf('<option value="%d"%s>%s</option>', $term->term_id, in_array($term->term_id, $category_ids, true) ? ' selected' : '', esc_html($term->name));
+                    foreach ($category_ids as $cid) {
+                        $term = get_term($cid, 'product_cat');
+                        if ($term && !is_wp_error($term)) {
+                            printf('<option value="%d" selected>%s</option>', $cid, esc_html($term->name));
+                        }
                     }
                     ?>
                 </select>
@@ -1298,6 +1281,23 @@ jQuery(function($){
         $('.wc-category-search').select2({
             width: '100%',
             multiple: true,
+            ajax: {
+                url: tbc_badge_admin.ajax_url,
+                dataType: 'json',
+                delay: 250,
+                data: function(params){
+                    return {
+                        term: params.term,
+                        action: 'tbc_search_product_categories',
+                        security: tbc_badge_admin.search_categories_nonce
+                    };
+                },
+                processResults: function(data){
+                    var results = [];
+                    $.each(data, function(id, text){ results.push({id:id, text:text}); });
+                    return {results:results};
+                }
+            },
             placeholder: function(){
                 return $(this).data('placeholder') || 'Select a category';
             }
@@ -1317,10 +1317,11 @@ add_action('admin_enqueue_scripts', function($hook){
         wp_enqueue_script('select2');
         wp_enqueue_style('select2');
         wp_enqueue_media();
-        // Localize nonce for product search
+        // Localize nonces for AJAX search
         wp_localize_script('wc-product-search', 'tbc_badge_admin', [
-            'search_products_nonce' => wp_create_nonce('search-products'),
-            'ajax_url' => admin_url('admin-ajax.php')
+            'search_products_nonce'   => wp_create_nonce('search-products'),
+            'search_categories_nonce' => wp_create_nonce('search-categories'),
+            'ajax_url'               => admin_url('admin-ajax.php')
         ]);
     }
 });
@@ -1377,6 +1378,25 @@ add_action('save_post_tbc_badge', function ($post_id) {
         }
     }
 }, 10, 1);
+
+// AJAX search for product categories
+add_action('wp_ajax_tbc_search_product_categories', function(){
+    check_ajax_referer('search-categories', 'security');
+    $term  = isset($_GET['term']) ? sanitize_text_field(wp_unslash($_GET['term'])) : '';
+    $terms = get_terms([
+        'taxonomy'   => 'product_cat',
+        'hide_empty' => false,
+        'search'     => $term,
+        'number'     => 20,
+    ]);
+    $results = [];
+    if (!is_wp_error($terms)) {
+        foreach ($terms as $t) {
+            $results[$t->term_id] = html_entity_decode($t->name);
+        }
+    }
+    wp_send_json($results);
+});
 
 
 /** ==== ADMIN LIST: PRIORITY COLUMN, CLICK TO MOVE ==== */
