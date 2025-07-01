@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.3.1-Beta
+Version: 1.8.4-Beta
 Author: Aidus
 */
 
@@ -887,18 +887,40 @@ function tbc_get_earned_badges_with_dates($user_id) {
         }
 
         if ($type === 'product') {
-            $pid = (int) get_post_meta($badge->ID, 'tbc_badge_product_id', true);
-            if ($pid && in_array($pid, $product_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($product_dates[$pid] ?? time());
+            $pids = get_post_meta($badge->ID, 'tbc_badge_product_id', true);
+            $pids = array_filter(array_map('intval', (array)$pids));
+            $match = array_intersect($pids, $product_ids);
+            if ($match) {
+                $date = $badge_dates[$badge->ID] ?? null;
+                if (!$date) {
+                    $date = PHP_INT_MAX;
+                    foreach ($match as $pid) {
+                        if (isset($product_dates[$pid]) && $product_dates[$pid] < $date) {
+                            $date = $product_dates[$pid];
+                        }
+                    }
+                    if ($date === PHP_INT_MAX) $date = time();
+                }
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
             }
         }
 
         if ($type === 'category') {
-            $cid = (int) get_post_meta($badge->ID, 'tbc_badge_category_id', true);
-            if ($cid && in_array($cid, $category_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($category_dates[$cid] ?? time());
+            $cids = get_post_meta($badge->ID, 'tbc_badge_category_id', true);
+            $cids = array_filter(array_map('intval', (array)$cids));
+            $match = array_intersect($cids, $category_ids);
+            if ($match) {
+                $date = $badge_dates[$badge->ID] ?? null;
+                if (!$date) {
+                    $date = PHP_INT_MAX;
+                    foreach ($match as $cid) {
+                        if (isset($category_dates[$cid]) && $category_dates[$cid] < $date) {
+                            $date = $category_dates[$cid];
+                        }
+                    }
+                    if ($date === PHP_INT_MAX) $date = time();
+                }
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
             }
@@ -1044,15 +1066,17 @@ function tbc_get_earned_badges($user_id) {
         }
 
         if ($type === 'product') {
-            $pid = (int) get_post_meta($badge->ID, 'tbc_badge_product_id', true);
-            if ($pid && in_array($pid, $product_ids, true)) {
+            $pids = get_post_meta($badge->ID, 'tbc_badge_product_id', true);
+            $pids = array_filter(array_map('intval', (array)$pids));
+            if ($pids && array_intersect($pids, $product_ids)) {
                 $earned[] = $badge->ID;
             }
         }
 
         if ($type === 'category') {
-            $cid = (int) get_post_meta($badge->ID, 'tbc_badge_category_id', true);
-            if ($cid && in_array($cid, $category_ids, true)) {
+            $cids = get_post_meta($badge->ID, 'tbc_badge_category_id', true);
+            $cids = array_filter(array_map('intval', (array)$cids));
+            if ($cids && array_intersect($cids, $category_ids)) {
                 $earned[] = $badge->ID;
             }
         }
@@ -1097,7 +1121,9 @@ function tbc_badge_fields_callback($post) {
     $icon = get_post_meta($post->ID, 'tbc_badge_icon', true);
     $type = get_post_meta($post->ID, 'tbc_badge_type', true) ?: 'always';
     $product = get_post_meta($post->ID, 'tbc_badge_product_id', true);
+    $product_ids = is_array($product) ? array_map('intval', $product) : ($product ? [intval($product)] : []);
     $category = get_post_meta($post->ID, 'tbc_badge_category_id', true);
+    $category_ids = is_array($category) ? array_map('intval', $category) : ($category ? [intval($category)] : []);
     $spend = get_post_meta($post->ID, 'tbc_badge_spend_threshold', true);
     $xp = get_post_meta($post->ID, 'tbc_badge_xp', true);
     if ($xp === '' || $xp === false) $xp = 20;
@@ -1133,40 +1159,47 @@ function tbc_badge_fields_callback($post) {
             </td>
         </tr>
         <tr class="tbc-badge-product" style="display:<?php echo $type == 'product' ? 'table-row' : 'none'; ?>;">
-    <th><label for="tbc_badge_product_id">Product</label></th>
-    <td>
-        <select id="tbc_badge_product_id" name="tbc_badge_product_id" data-placeholder="Select a product">
-            <option value="">Select a product</option>
-            <?php
-            $args = array(
-                'post_type'      => 'product',
-                'posts_per_page' => 100, // Increase if you want more products
-                'orderby'        => 'title',
-                'order'          => 'ASC',
-            );
-            $products = get_posts($args);
-            foreach ($products as $product_post) {
-                printf(
-                    '<option value="%d"%s>%s</option>',
-                    $product_post->ID,
-                    selected($product, $product_post->ID, false),
-                    esc_html($product_post->post_title)
-                );
-            }
-            ?>
-        </select>
-        <span class="description">Please enter 3 or more characters</span>
-    </td>
-</tr>
+            <th><label for="tbc_badge_product_id">Product</label></th>
+            <td>
+                <select id="tbc_badge_product_id" name="tbc_badge_product_id[]" class="wc-product-search" multiple data-placeholder="Select a product">
+                    <?php
+                    $args = [
+                        'post_type'      => 'product',
+                        'posts_per_page' => 100,
+                        'orderby'        => 'title',
+                        'order'          => 'ASC',
+                    ];
+                    $products = get_posts($args);
+                    foreach ($products as $product_post) {
+                        printf(
+                            '<option value="%d"%s>%s</option>',
+                            $product_post->ID,
+                            in_array($product_post->ID, $product_ids, true) ? ' selected' : '',
+                            esc_html($product_post->post_title)
+                        );
+                    }
+                    // Ensure any selected products beyond the query appear
+                    foreach ($product_ids as $pid) {
+                        if (!array_filter($products, function($p) use($pid){ return $p->ID == $pid; })) {
+                            $post_obj = get_post($pid);
+                            if ($post_obj) {
+                                printf('<option value="%d" selected>%s</option>', $pid, esc_html($post_obj->post_title));
+                            }
+                        }
+                    }
+                    ?>
+                </select>
+                <span class="description">Please enter 3 or more characters</span>
+            </td>
+        </tr>
         <tr class="tbc-badge-category" style="display:<?php echo $type == 'category' ? 'table-row' : 'none'; ?>;">
             <th><label for="tbc_badge_category_id">Category</label></th>
             <td>
-                <select id="tbc_badge_category_id" name="tbc_badge_category_id" class="wc-category-search" data-placeholder="Select a category">
-                    <option value="">Select Category</option>
+                <select id="tbc_badge_category_id" name="tbc_badge_category_id[]" class="wc-category-search" multiple data-placeholder="Select a category">
                     <?php
                     $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]);
                     foreach ($terms as $term) {
-                        printf('<option value="%d"%s>%s</option>', $term->term_id, selected($category, $term->term_id, false), esc_html($term->name));
+                        printf('<option value="%d"%s>%s</option>', $term->term_id, in_array($term->term_id, $category_ids, true) ? ' selected' : '', esc_html($term->name));
                     }
                     ?>
                 </select>
@@ -1239,7 +1272,8 @@ jQuery(function($){
     });
     if(typeof $.fn.select2 !== 'undefined'){
         $('.wc-product-search').select2({
-            width: '100%',             
+            width: '100%',
+            multiple: true,
             ajax: {
                 url: tbc_badge_admin.ajax_url,
                 dataType: 'json',
@@ -1263,6 +1297,7 @@ jQuery(function($){
         // Add Select2 to the category select as well
         $('.wc-category-search').select2({
             width: '100%',
+            multiple: true,
             placeholder: function(){
                 return $(this).data('placeholder') || 'Select a category';
             }
@@ -1328,6 +1363,12 @@ add_action('save_post_tbc_badge', function ($post_id) {
                 $xp_val = intval($_POST["tbc_badge_$field"]);
                 if ($xp_val < 1) $xp_val = 20;
                 update_post_meta($post_id, "tbc_badge_$field", $xp_val);
+            } else if ($field === 'product_id') {
+                $vals = array_map('intval', (array)$_POST["tbc_badge_$field"]);
+                update_post_meta($post_id, "tbc_badge_$field", $vals);
+            } else if ($field === 'category_id') {
+                $vals = array_map('intval', (array)$_POST["tbc_badge_$field"]);
+                update_post_meta($post_id, "tbc_badge_$field", $vals);
             } else {
                 update_post_meta($post_id, "tbc_badge_$field", sanitize_text_field($_POST["tbc_badge_$field"]));
             }
