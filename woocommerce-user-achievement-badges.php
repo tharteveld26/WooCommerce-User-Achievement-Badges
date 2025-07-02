@@ -68,7 +68,7 @@ add_action('admin_head', function() {
         box-sizing: border-box;
         cursor: pointer;
     }
-    .tbc-badge-admin-table .select2-selection__rendered {
+    .tbc-badge-admin-table  {
         width: 100% !important;
         box-sizing: border-box;
         cursor: pointer;
@@ -1155,21 +1155,21 @@ function tbc_badge_fields_callback($post) {
             }
             ?>
         </select>
-        <span class="description">Please enter 3 or more characters</span>
     </td>
 </tr>
         <tr class="tbc-badge-category" style="display:<?php echo $type == 'category' ? 'table-row' : 'none'; ?>;">
             <th><label for="tbc_badge_category_id">Category</label></th>
             <td>
                 <select id="tbc_badge_category_id" name="tbc_badge_category_id" class="wc-category-search" data-placeholder="Select a category">
-                    <option value="">Select Category</option>
-                    <?php
-                    $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]);
-                    foreach ($terms as $term) {
-                        printf('<option value="%d"%s>%s</option>', $term->term_id, selected($category, $term->term_id, false), esc_html($term->name));
-                    }
-                    ?>
-                </select>
+    <!-- No placeholder option here -->
+    <?php
+    $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]);
+    foreach ($terms as $term) {
+        printf('<option value="%d"%s>%s</option>', $term->term_id, selected($category, $term->term_id, false), esc_html($term->name));
+    }
+    ?>
+</select>
+
             </td>
         </tr>
         <tr class="tbc-badge-spend" style="display:<?php echo $type == 'spend' ? 'table-row' : 'none'; ?>;">
@@ -1218,13 +1218,34 @@ function tbc_badge_fields_callback($post) {
 </tr>
     </table>
 <script>
+
+
 jQuery(function($){
-    $('#tbc_badge_type').on('change',function(){
-        $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
-        if(this.value==='product') $('.tbc-badge-product').show();
-        if(this.value==='category') $('.tbc-badge-category').show();
-        if(this.value==='spend') $('.tbc-badge-spend').show();
-    });
+    $('#tbc_badge_type').on('change', function () {
+    $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
+
+    if (this.value === 'product') {
+        $('.tbc-badge-product').show();
+    }
+    if (this.value === 'category') {
+        $('.tbc-badge-category').show();
+
+        // Re-initialise Select2 only when shown
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#tbc_badge_category_id').select2({
+                width: '100%',
+                placeholder: 'Select a category'
+            });
+            
+            $('#tbc_badge_type').trigger('change');
+            
+        }
+    }
+    if (this.value === 'spend') {
+        $('.tbc-badge-spend').show();
+    }
+});
+
     $('.tbc-upload-badge-icon').on('click',function(e){
         e.preventDefault();
         var $input = $('#tbc_badge_icon');
