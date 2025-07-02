@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.6-Beta
+Version: 1.8.7-Beta
 Author: Aidus
 */
 
@@ -1235,12 +1235,15 @@ function tbc_badge_fields_callback($post) {
     </table>
 <?php
     $tbc_badge_js = "jQuery(function($){
-        $('#tbc_badge_type').on('change',function(){
+        var $typeField = $('#tbc_badge_type');
+        function updateFields(){
             $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
-            if(this.value==='product') $('.tbc-badge-product').show();
-            if(this.value==='category') $('.tbc-badge-category').show();
-            if(this.value==='spend') $('.tbc-badge-spend').show();
-        });
+            if($typeField.val()==='product') $('.tbc-badge-product').css('display','table-row');
+            if($typeField.val()==='category') $('.tbc-badge-category').css('display','table-row');
+            if($typeField.val()==='spend') $('.tbc-badge-spend').css('display','table-row');
+        }
+        $typeField.on('change', updateFields);
+        updateFields();
         $('.tbc-upload-badge-icon').on('click',function(e){
             e.preventDefault();
             var $input = $('#tbc_badge_icon');
