@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.3.1-Beta
+Version: 1.8.8-Beta
 Author: Aidus
 */
 
@@ -887,18 +887,40 @@ function tbc_get_earned_badges_with_dates($user_id) {
         }
 
         if ($type === 'product') {
-            $pid = (int) get_post_meta($badge->ID, 'tbc_badge_product_id', true);
-            if ($pid && in_array($pid, $product_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($product_dates[$pid] ?? time());
+            $pids = get_post_meta($badge->ID, 'tbc_badge_product_id', true);
+            $pids = array_filter(array_map('intval', (array)$pids));
+            $match = array_intersect($pids, $product_ids);
+            if ($match) {
+                $date = $badge_dates[$badge->ID] ?? null;
+                if (!$date) {
+                    $date = PHP_INT_MAX;
+                    foreach ($match as $pid) {
+                        if (isset($product_dates[$pid]) && $product_dates[$pid] < $date) {
+                            $date = $product_dates[$pid];
+                        }
+                    }
+                    if ($date === PHP_INT_MAX) $date = time();
+                }
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
             }
         }
 
         if ($type === 'category') {
-            $cid = (int) get_post_meta($badge->ID, 'tbc_badge_category_id', true);
-            if ($cid && in_array($cid, $category_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($category_dates[$cid] ?? time());
+            $cids = get_post_meta($badge->ID, 'tbc_badge_category_id', true);
+            $cids = array_filter(array_map('intval', (array)$cids));
+            $match = array_intersect($cids, $category_ids);
+            if ($match) {
+                $date = $badge_dates[$badge->ID] ?? null;
+                if (!$date) {
+                    $date = PHP_INT_MAX;
+                    foreach ($match as $cid) {
+                        if (isset($category_dates[$cid]) && $category_dates[$cid] < $date) {
+                            $date = $category_dates[$cid];
+                        }
+                    }
+                    if ($date === PHP_INT_MAX) $date = time();
+                }
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
             }
@@ -1044,15 +1066,17 @@ function tbc_get_earned_badges($user_id) {
         }
 
         if ($type === 'product') {
-            $pid = (int) get_post_meta($badge->ID, 'tbc_badge_product_id', true);
-            if ($pid && in_array($pid, $product_ids, true)) {
+            $pids = get_post_meta($badge->ID, 'tbc_badge_product_id', true);
+            $pids = array_filter(array_map('intval', (array)$pids));
+            if ($pids && array_intersect($pids, $product_ids)) {
                 $earned[] = $badge->ID;
             }
         }
 
         if ($type === 'category') {
-            $cid = (int) get_post_meta($badge->ID, 'tbc_badge_category_id', true);
-            if ($cid && in_array($cid, $category_ids, true)) {
+            $cids = get_post_meta($badge->ID, 'tbc_badge_category_id', true);
+            $cids = array_filter(array_map('intval', (array)$cids));
+            if ($cids && array_intersect($cids, $category_ids)) {
                 $earned[] = $badge->ID;
             }
         }
@@ -1097,7 +1121,9 @@ function tbc_badge_fields_callback($post) {
     $icon = get_post_meta($post->ID, 'tbc_badge_icon', true);
     $type = get_post_meta($post->ID, 'tbc_badge_type', true) ?: 'always';
     $product = get_post_meta($post->ID, 'tbc_badge_product_id', true);
+    $product_ids = is_array($product) ? array_map('intval', $product) : ($product ? [intval($product)] : []);
     $category = get_post_meta($post->ID, 'tbc_badge_category_id', true);
+    $category_ids = is_array($category) ? array_map('intval', $category) : ($category ? [intval($category)] : []);
     $spend = get_post_meta($post->ID, 'tbc_badge_spend_threshold', true);
     $xp = get_post_meta($post->ID, 'tbc_badge_xp', true);
     if ($xp === '' || $xp === false) $xp = 20;
@@ -1109,8 +1135,13 @@ function tbc_badge_fields_callback($post) {
     ?>
     <style>
     .tbc-badge-admin-table th { text-align: left; width: 140px; }
-    .tbc-badge-admin-table input[type="text"], .tbc-badge-admin-table input[type="number"], .tbc-badge-admin-table select { width: 100%; }
+    .tbc-badge-admin-table input[type="text"],
+    .tbc-badge-admin-table input[type="number"],
+    .tbc-badge-admin-table select { width: 100%; }
     .tbc-badge-admin-table .tbc-badge-media-preview { max-width: 48px; max-height: 48px; display: block; }
+    /* Make Select2 dropdown behave like a popup */
+    .tbc-select2-dropdown.select2-dropdown { z-index: 99999; }
+    .tbc-select2-dropdown .select2-results__options { max-height: 260px; overflow-y: auto; }
     </style>
     <table class="form-table tbc-badge-admin-table">
         <tr>
@@ -1133,40 +1164,30 @@ function tbc_badge_fields_callback($post) {
             </td>
         </tr>
         <tr class="tbc-badge-product" style="display:<?php echo $type == 'product' ? 'table-row' : 'none'; ?>;">
-    <th><label for="tbc_badge_product_id">Product</label></th>
-    <td>
-        <select id="tbc_badge_product_id" name="tbc_badge_product_id" data-placeholder="Select a product">
-            <option value="">Select a product</option>
-            <?php
-            $args = array(
-                'post_type'      => 'product',
-                'posts_per_page' => 100, // Increase if you want more products
-                'orderby'        => 'title',
-                'order'          => 'ASC',
-            );
-            $products = get_posts($args);
-            foreach ($products as $product_post) {
-                printf(
-                    '<option value="%d"%s>%s</option>',
-                    $product_post->ID,
-                    selected($product, $product_post->ID, false),
-                    esc_html($product_post->post_title)
-                );
-            }
-            ?>
-        </select>
-        <span class="description">Please enter 3 or more characters</span>
-    </td>
-</tr>
+            <th><label for="tbc_badge_product_id">Product</label></th>
+            <td>
+                <select id="tbc_badge_product_id" name="tbc_badge_product_id[]" class="wc-product-search" multiple data-placeholder="Search for a product">
+                    <?php
+                    foreach ($product_ids as $pid) {
+                        $post_obj = get_post($pid);
+                        if ($post_obj) {
+                            printf('<option value="%d" selected>%s</option>', $pid, esc_html($post_obj->post_title));
+                        }
+                    }
+                    ?>
+                </select>
+            </td>
+        </tr>
         <tr class="tbc-badge-category" style="display:<?php echo $type == 'category' ? 'table-row' : 'none'; ?>;">
             <th><label for="tbc_badge_category_id">Category</label></th>
             <td>
-                <select id="tbc_badge_category_id" name="tbc_badge_category_id" class="wc-category-search" data-placeholder="Select a category">
-                    <option value="">Select Category</option>
+                <select id="tbc_badge_category_id" name="tbc_badge_category_id[]" class="wc-category-search" multiple data-placeholder="Search for a category">
                     <?php
-                    $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]);
-                    foreach ($terms as $term) {
-                        printf('<option value="%d"%s>%s</option>', $term->term_id, selected($category, $term->term_id, false), esc_html($term->name));
+                    foreach ($category_ids as $cid) {
+                        $term = get_term($cid, 'product_cat');
+                        if ($term && !is_wp_error($term)) {
+                            printf('<option value="%d" selected>%s</option>', $cid, esc_html($term->name));
+                        }
                     }
                     ?>
                 </select>
@@ -1217,60 +1238,91 @@ function tbc_badge_fields_callback($post) {
     </td>
 </tr>
     </table>
-<script>
-jQuery(function($){
-    $('#tbc_badge_type').on('change',function(){
-        $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
-        if(this.value==='product') $('.tbc-badge-product').show();
-        if(this.value==='category') $('.tbc-badge-category').show();
-        if(this.value==='spend') $('.tbc-badge-spend').show();
-    });
-    $('.tbc-upload-badge-icon').on('click',function(e){
-        e.preventDefault();
-        var $input = $('#tbc_badge_icon');
-        var $preview = $('.tbc-badge-media-preview');
-        var frame = wp.media({title:'Select Badge Icon',button:{text:'Use this icon'},multiple:false});
-        frame.on('select',function(){
-            var url = frame.state().get('selection').first().toJSON().url;
-            $input.val(url);
-            $preview.attr('src',url).show();
-        });
-        frame.open();
-    });
-    if(typeof $.fn.select2 !== 'undefined'){
-        $('.wc-product-search').select2({
-            width: '100%',             
-            ajax: {
-                url: tbc_badge_admin.ajax_url,
-                dataType: 'json',
-                delay: 250,
-                data: function(params){
-                    return {
-                        term: params.term,
-                        action: 'woocommerce_json_search_products_and_variations',
-                        security: tbc_badge_admin.search_products_nonce
-                    };
-                },
-                processResults: function(data){
-                    var results = [];
-                    $.each(data, function(id, text){ results.push({id:id, text:text}); });
-                    return {results:results};
-                }
-            },
-            allowClear: true,
-            dropdownParent: $('#tbc_badge_fields')
-        });
-        // Add Select2 to the category select as well
-        $('.wc-category-search').select2({
-            width: '100%',
-            placeholder: function(){
-                return $(this).data('placeholder') || 'Select a category';
-            }
-        });
-    }
-});
-</script>
 <?php
+    $tbc_badge_js = "jQuery(function($){
+        var $typeField = $('#tbc_badge_type');
+        function updateFields(){
+            $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
+            if($typeField.val()==='product') $('.tbc-badge-product').css('display','table-row');
+            if($typeField.val()==='category') $('.tbc-badge-category').css('display','table-row');
+            if($typeField.val()==='spend') $('.tbc-badge-spend').css('display','table-row');
+        }
+        $typeField.on('change', updateFields);
+        updateFields();
+        $('.tbc-upload-badge-icon').on('click',function(e){
+            e.preventDefault();
+            var $input = $('#tbc_badge_icon');
+            var $preview = $('.tbc-badge-media-preview');
+            var frame = wp.media({title:'Select Badge Icon',button:{text:'Use this icon'},multiple:false});
+            frame.on('select',function(){
+                var url = frame.state().get('selection').first().toJSON().url;
+                $input.val(url);
+                $preview.attr('src',url).show();
+            });
+            frame.open();
+        });
+        if(typeof $.fn.select2 !== 'undefined'){
+            $('.wc-product-search').select2({
+                width: '100%',
+                multiple: true,
+                closeOnSelect: false,
+                ajax: {
+                    url: tbc_badge_admin.ajax_url,
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params){
+                        return {
+                            term: params.term,
+                            action: 'woocommerce_json_search_products_and_variations',
+                            security: tbc_badge_admin.search_products_nonce
+                        };
+                    },
+                    processResults: function(data){
+                        var results = [];
+                        $.each(data, function(id, text){ results.push({id:id, text:text}); });
+                        return {results:results};
+                    }
+                },
+                allowClear: true,
+                dropdownParent: $('body'),
+                dropdownCssClass: 'tbc-select2-dropdown'
+            });
+            // Add Select2 to the category select as well
+            $('.wc-category-search').select2({
+                width: '100%',
+                multiple: true,
+                closeOnSelect: false,
+                ajax: {
+                    url: tbc_badge_admin.ajax_url,
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params){
+                        return {
+                            term: params.term,
+                            action: 'tbc_search_product_categories',
+                            security: tbc_badge_admin.search_categories_nonce
+                        };
+                    },
+                    processResults: function(data){
+                        var results = [];
+                        $.each(data, function(id, text){ results.push({id:id, text:text}); });
+                        return {results:results};
+                    }
+                },
+                placeholder: function(){
+                    return $(this).data('placeholder') || 'Select a category';
+                },
+                dropdownParent: $('body'),
+                dropdownCssClass: 'tbc-select2-dropdown'
+            });
+        }
+});";
+    if(function_exists('wc_enqueue_js')){
+        wc_enqueue_js($tbc_badge_js);
+    }else{
+        echo '<script>'.$tbc_badge_js.'</script>';
+    }
+
 }
 
 add_action('admin_enqueue_scripts', function($hook){
@@ -1282,10 +1334,11 @@ add_action('admin_enqueue_scripts', function($hook){
         wp_enqueue_script('select2');
         wp_enqueue_style('select2');
         wp_enqueue_media();
-        // Localize nonce for product search
+        // Localize nonces for AJAX search
         wp_localize_script('wc-product-search', 'tbc_badge_admin', [
-            'search_products_nonce' => wp_create_nonce('search-products'),
-            'ajax_url' => admin_url('admin-ajax.php')
+            'search_products_nonce'   => wp_create_nonce('search-products'),
+            'search_categories_nonce' => wp_create_nonce('search-categories'),
+            'ajax_url'               => admin_url('admin-ajax.php')
         ]);
     }
 });
@@ -1328,6 +1381,12 @@ add_action('save_post_tbc_badge', function ($post_id) {
                 $xp_val = intval($_POST["tbc_badge_$field"]);
                 if ($xp_val < 1) $xp_val = 20;
                 update_post_meta($post_id, "tbc_badge_$field", $xp_val);
+            } else if ($field === 'product_id') {
+                $vals = array_map('intval', (array)$_POST["tbc_badge_$field"]);
+                update_post_meta($post_id, "tbc_badge_$field", $vals);
+            } else if ($field === 'category_id') {
+                $vals = array_map('intval', (array)$_POST["tbc_badge_$field"]);
+                update_post_meta($post_id, "tbc_badge_$field", $vals);
             } else {
                 update_post_meta($post_id, "tbc_badge_$field", sanitize_text_field($_POST["tbc_badge_$field"]));
             }
@@ -1336,6 +1395,25 @@ add_action('save_post_tbc_badge', function ($post_id) {
         }
     }
 }, 10, 1);
+
+// AJAX search for product categories
+add_action('wp_ajax_tbc_search_product_categories', function(){
+    check_ajax_referer('search-categories', 'security');
+    $term  = isset($_GET['term']) ? sanitize_text_field(wp_unslash($_GET['term'])) : '';
+    $terms = get_terms([
+        'taxonomy'   => 'product_cat',
+        'hide_empty' => false,
+        'search'     => $term,
+        'number'     => 20,
+    ]);
+    $results = [];
+    if (!is_wp_error($terms)) {
+        foreach ($terms as $t) {
+            $results[$t->term_id] = html_entity_decode($t->name);
+        }
+    }
+    wp_send_json($results);
+});
 
 
 /** ==== ADMIN LIST: PRIORITY COLUMN, CLICK TO MOVE ==== */
