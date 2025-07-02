@@ -1153,68 +1153,7 @@ function tbc_badge_fields_callback($post) {
     $priority = get_post_meta($post->ID, 'tbc_badge_priority', true);
 
     wp_nonce_field('tbc_badge_save', 'tbc_badge_nonce');
-    ?>if (typeof $.fn.select2 !== 'undefined') {
-    window.requestAnimationFrame(() => {
-        $('.wc-product-search').select2({
-            width: '100%',
-            multiple: true,
-            closeOnSelect: false,
-            dropdownParent: $('body'),
-            dropdownCssClass: 'tbc-select2-dropdown',
-            ajax: {
-                url: tbc_badge_admin.ajax_url,
-                dataType: 'json',
-                delay: 250,
-                data: function (params) {
-                    return {
-                        term: params.term,
-                        action: 'woocommerce_json_search_products_and_variations',
-                        security: tbc_badge_admin.search_products_nonce
-                    };
-                },
-                processResults: function (data) {
-                    var results = [];
-                    $.each(data, function (id, text) {
-                        results.push({ id: id, text: text });
-                    });
-                    return { results: results };
-                }
-            },
-            allowClear: true
-        });
-
-        $('.wc-category-search').select2({
-            width: '100%',
-            multiple: true,
-            closeOnSelect: false,
-            dropdownParent: $('body'),
-            dropdownCssClass: 'tbc-select2-dropdown',
-            ajax: {
-                url: tbc_badge_admin.ajax_url,
-                dataType: 'json',
-                delay: 250,
-                data: function (params) {
-                    return {
-                        term: params.term,
-                        action: 'tbc_search_product_categories',
-                        security: tbc_badge_admin.search_categories_nonce
-                    };
-                },
-                processResults: function (data) {
-                    var results = [];
-                    $.each(data, function (id, text) {
-                        results.push({ id: id, text: text });
-                    });
-                    return { results: results };
-                }
-            },
-            allowClear: true,
-            placeholder: function () {
-                return $(this).data('placeholder') || 'Select a category';
-            }
-        });
-    });
-}
+?>
        </select>
             </td>
         </tr>
@@ -1278,7 +1217,7 @@ function tbc_badge_fields_callback($post) {
     </td>
 </tr>
     </table>
-<?php
+?>
     <script>
 jQuery(function($){
     if (typeof $.fn.select2 !== 'undefined') {
@@ -1369,9 +1308,7 @@ jQuery(function($){
     });
 });
 </script>
-
-    }
-
+<?php
 }
 
 add_action('admin_enqueue_scripts', function($hook){
