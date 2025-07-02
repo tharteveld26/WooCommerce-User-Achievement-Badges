@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.8-Beta
+Version: 1.8.9-Beta
 Author: Aidus
 */
 
@@ -1413,6 +1413,39 @@ add_action('wp_ajax_tbc_search_product_categories', function(){
         }
     }
     wp_send_json($results);
+});
+
+/** ==== ADMIN LIST FILTER: UNLOCK TYPE ==== */
+add_action('restrict_manage_posts', function(){
+    global $typenow;
+    if ($typenow !== 'tbc_badge') return;
+    $current = isset($_GET['tbc_badge_type_filter']) ? sanitize_text_field($_GET['tbc_badge_type_filter']) : '';
+    $options = [
+        ''         => 'All Unlock Types',
+        'always'   => 'Always unlocked',
+        'product'  => 'By Product',
+        'category' => 'By Category',
+        'spend'    => 'By Spend'
+    ];
+    echo '<select name="tbc_badge_type_filter" style="margin-right:4px;">
+    ';
+    foreach ($options as $val => $label) {
+        printf('<option value="%s"%s>%s</option>', esc_attr($val), selected($current, $val, false), esc_html($label));
+    }
+    echo '</select>';
+});
+
+add_filter('parse_query', function($query){
+    global $pagenow;
+    if ($pagenow === 'edit.php' && $query->get('post_type') === 'tbc_badge' && !empty($_GET['tbc_badge_type_filter'])) {
+        $type = sanitize_text_field($_GET['tbc_badge_type_filter']);
+        $meta_query = (array) $query->get('meta_query');
+        $meta_query[] = [
+            'key'   => 'tbc_badge_type',
+            'value' => $type,
+        ];
+        $query->set('meta_query', $meta_query);
+    }
 });
 
 
