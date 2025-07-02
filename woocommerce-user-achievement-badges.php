@@ -331,6 +331,14 @@ $opts['xp_bar_text'] = sanitize_hex_color($_POST['xp_bar_text']);
     <?php
 }
 
+/** Get the XP value awarded by a badge. XP-based badges give 0 XP. */
+function tbc_badge_get_xp($badge_id) {
+    $type = get_post_meta($badge_id, 'tbc_badge_type', true);
+    if ($type === 'xp') return 0;
+    $xp = (int) get_post_meta($badge_id, 'tbc_badge_xp', true);
+    if ($xp <= 0) $xp = 20;
+    return $xp;
+}
 
 /** ==== BADGE GRID DISPLAY ==== */
 function tbc_badges_grid($atts = []) {
@@ -709,8 +717,7 @@ function tbc_badges_grid($atts = []) {
         $desc = esc_html(get_post_meta($badge->ID, 'tbc_badge_description', true));
         $tooltip = $unlocked ? $desc : $hint;
         $tooltip_class = $unlocked ? 'tbc-badge-tooltip-unlocked' : 'tbc-badge-tooltip-locked';
-        $xp = (int)get_post_meta($badge->ID, 'tbc_badge_xp', true);
-        if ($xp <= 0) $xp = 20;
+        $xp = tbc_badge_get_xp($badge->ID);
 
         // For unlocked: get unlock date (as timestamp)
         $unlock_date = $unlocked && isset($earned_info[$badge->ID]['date']) ? $earned_info[$badge->ID]['date'] : '';
@@ -949,9 +956,7 @@ function tbc_get_earned_badges_with_dates($user_id) {
     // Calculate XP after initial pass
     $xp_total = 0;
     foreach ($earned as $bid => $info) {
-        $val = (int)get_post_meta($bid, 'tbc_badge_xp', true);
-        if ($val <= 0) $val = 20;
-        $xp_total += $val;
+        $xp_total += tbc_badge_get_xp($bid);
     }
 
     foreach ($badges as $badge) {
@@ -963,9 +968,7 @@ function tbc_get_earned_badges_with_dates($user_id) {
                 $date = $badge_dates[$badge->ID] ?? time();
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
-                $val = (int)get_post_meta($badge->ID, 'tbc_badge_xp', true);
-                if ($val <= 0) $val = 20;
-                $xp_total += $val;
+                // XP-based badges do not award additional XP
             }
         }
         if ($type === 'custom') {
@@ -978,9 +981,7 @@ function tbc_get_earned_badges_with_dates($user_id) {
                     $date = $badge_dates[$badge->ID] ?? time();
                     $earned[$badge->ID] = ['date' => $date];
                     $badge_dates[$badge->ID] = $date;
-                    $val = (int)get_post_meta($badge->ID, 'tbc_badge_xp', true);
-                    if ($val <= 0) $val = 20;
-                    $xp_total += $val;
+                    $xp_total += tbc_badge_get_xp($badge->ID);
                 }
             }
         }
@@ -1013,8 +1014,7 @@ function tbc_badges_xp_bar_shortcode($atts = []) {
     $user_xp = 0;
 
     foreach ($badges as $badge) {
-        $xp = (int)get_post_meta($badge->ID, 'tbc_badge_xp', true);
-        if ($xp <= 0) $xp = 20;
+        $xp = tbc_badge_get_xp($badge->ID);
         $total_xp += $xp;
         if (in_array($badge->ID, $earned)) $user_xp += $xp;
     }
@@ -1165,9 +1165,7 @@ function tbc_get_earned_badges($user_id) {
     // Calculate XP from initially earned badges
     $xp_total = 0;
     foreach ($earned as $bid) {
-        $val = (int)get_post_meta($bid, 'tbc_badge_xp', true);
-        if ($val <= 0) $val = 20;
-        $xp_total += $val;
+        $xp_total += tbc_badge_get_xp($bid);
     }
 
     foreach ($badges as $badge) {
@@ -1177,9 +1175,7 @@ function tbc_get_earned_badges($user_id) {
             $need = intval(get_post_meta($badge->ID, 'tbc_badge_xp_threshold', true));
             if ($xp_total >= $need) {
                 $earned[] = $badge->ID;
-                $val = (int)get_post_meta($badge->ID, 'tbc_badge_xp', true);
-                if ($val <= 0) $val = 20;
-                $xp_total += $val;
+                // XP-based badges do not award additional XP
             }
         }
         if ($type === 'custom') {
@@ -1190,9 +1186,7 @@ function tbc_get_earned_badges($user_id) {
                 try { eval($code); } catch (Throwable $e) { $unlock = false; }
                 if (!empty($unlock)) {
                     $earned[] = $badge->ID;
-                    $val = (int)get_post_meta($badge->ID, 'tbc_badge_xp', true);
-                    if ($val <= 0) $val = 20;
-                    $xp_total += $val;
+                    $xp_total += tbc_badge_get_xp($badge->ID);
                 }
             }
         }
@@ -1237,7 +1231,11 @@ function tbc_badge_fields_callback($post) {
     $xp_threshold = get_post_meta($post->ID, 'tbc_badge_xp_threshold', true);
     $xp = get_post_meta($post->ID, 'tbc_badge_xp', true);
     $custom_code = get_post_meta($post->ID, 'tbc_badge_custom_code', true);
-    if ($xp === '' || $xp === false) $xp = 20;
+    if ($type === 'xp') {
+        $xp = 0;
+    } elseif ($xp === '' || $xp === false) {
+        $xp = 20;
+    }
     $hint = get_post_meta($post->ID, 'tbc_badge_hint', true);
     $desc = get_post_meta($post->ID, 'tbc_badge_description', true);
     $priority = get_post_meta($post->ID, 'tbc_badge_priority', true);
@@ -1434,6 +1432,9 @@ jQuery(function($){
     }
     if (this.value === 'xp') {
         $('.tbc-badge-xp-thresh').show();
+        $('#tbc_badge_xp').val(0).prop('disabled', true);
+    } else {
+        $('#tbc_badge_xp').prop('disabled', false);
     }
     if (this.value === 'custom') {
         $('.tbc-badge-custom').show();
@@ -1507,6 +1508,7 @@ add_action('admin_enqueue_scripts', function($hook){
 
 add_action('save_post_tbc_badge', function ($post_id) {
     if (!isset($_POST['tbc_badge_nonce']) || !wp_verify_nonce($_POST['tbc_badge_nonce'], 'tbc_badge_save')) return;
+    $type_val = isset($_POST['tbc_badge_type']) ? sanitize_text_field($_POST['tbc_badge_type']) : '';
     foreach (['icon','type','product_id','category_id','tag_id','brand_id','spend_threshold','xp_threshold','hint','description','priority','xp','parent_id','custom_code'] as $field) {
         if (isset($_POST["tbc_badge_$field"])) {
             // Priority uniqueness enforcement
@@ -1541,7 +1543,11 @@ add_action('save_post_tbc_badge', function ($post_id) {
                 update_post_meta($post_id, "tbc_badge_$field", $new_priority);
             } else if ($field === 'xp') {
                 $xp_val = intval($_POST["tbc_badge_$field"]);
-                if ($xp_val < 1) $xp_val = 20;
+                if ($type_val === 'xp') {
+                    $xp_val = 0;
+                } elseif ($xp_val < 1) {
+                    $xp_val = 20;
+                }
                 update_post_meta($post_id, "tbc_badge_$field", $xp_val);
             } else if ($field === 'xp_threshold') {
                 $val = intval($_POST["tbc_badge_$field"]);
