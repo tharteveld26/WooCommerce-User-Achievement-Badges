@@ -1,7 +1,6 @@
 jQuery(function($){
-    var $typeField = $('#tbc_badge_type');
     function updateFields(){
-        var val = $typeField.val();
+        var val = $('#tbc_badge_type').val();
         $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend, .tbc-badge-xp, .tbc-badge-json').hide();
         if(val==='product') $('.tbc-badge-product').show();
         if(val==='category') $('.tbc-badge-category').show();
@@ -9,7 +8,7 @@ jQuery(function($){
         if(val==='xp') $('.tbc-badge-xp').show();
         if(val==='json') $('.tbc-badge-json').show();
     }
-    $typeField.on('change', updateFields);
+    $(document).on('change', '#tbc_badge_type', updateFields);
     updateFields();
 
     $('.tbc-upload-badge-icon').on('click',function(e){
