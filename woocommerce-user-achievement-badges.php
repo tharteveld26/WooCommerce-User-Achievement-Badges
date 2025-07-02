@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.3.1-Beta
+Version: 1.8.3.9-Beta
 Author: Aidus
 */
 
@@ -916,38 +916,118 @@ function tbc_get_earned_badges_with_dates($user_id) {
         }
 
         if ($type === 'product') {
-            $pid = (int) get_post_meta($badge->ID, 'tbc_badge_product_id', true);
-            if ($pid && in_array($pid, $product_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($product_dates[$pid] ?? time());
-                $earned[$badge->ID] = ['date' => $date];
-                $badge_dates[$badge->ID] = $date;
+            $pids = get_post_meta($badge->ID, 'tbc_badge_product_ids', true);
+            if (!is_array($pids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_product_id', true);
+                $pids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_product_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                $all_present = $pids && !array_diff(array_map('intval', $pids), $product_ids);
+                if ($all_present) {
+                    $first_pid = reset($pids);
+                    $first_pid = (int)$first_pid;
+                    $date = $badge_dates[$badge->ID] ?? ($product_dates[$first_pid] ?? time());
+                    $earned[$badge->ID] = ['date' => $date];
+                    $badge_dates[$badge->ID] = $date;
+                }
+            } else {
+                foreach ($pids as $pid) {
+                    $pid = (int)$pid;
+                    if ($pid && in_array($pid, $product_ids, true)) {
+                        $date = $badge_dates[$badge->ID] ?? ($product_dates[$pid] ?? time());
+                        $earned[$badge->ID] = ['date' => $date];
+                        $badge_dates[$badge->ID] = $date;
+                        break;
+                    }
+                }
             }
         }
 
         if ($type === 'category') {
-            $cid = (int) get_post_meta($badge->ID, 'tbc_badge_category_id', true);
-            if ($cid && in_array($cid, $category_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($category_dates[$cid] ?? time());
-                $earned[$badge->ID] = ['date' => $date];
-                $badge_dates[$badge->ID] = $date;
+            $cids = get_post_meta($badge->ID, 'tbc_badge_category_ids', true);
+            if (!is_array($cids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_category_id', true);
+                $cids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_category_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                $all_present = $cids && !array_diff(array_map('intval', $cids), $category_ids);
+                if ($all_present) {
+                    $first_cid = reset($cids);
+                    $first_cid = (int)$first_cid;
+                    $date = $badge_dates[$badge->ID] ?? ($category_dates[$first_cid] ?? time());
+                    $earned[$badge->ID] = ['date' => $date];
+                    $badge_dates[$badge->ID] = $date;
+                }
+            } else {
+                foreach ($cids as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid && in_array($cid, $category_ids, true)) {
+                        $date = $badge_dates[$badge->ID] ?? ($category_dates[$cid] ?? time());
+                        $earned[$badge->ID] = ['date' => $date];
+                        $badge_dates[$badge->ID] = $date;
+                        break;
+                    }
+                }
             }
         }
 
         if ($type === 'tag') {
-            $tid = (int) get_post_meta($badge->ID, 'tbc_badge_tag_id', true);
-            if ($tid && in_array($tid, $tag_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($tag_dates[$tid] ?? time());
-                $earned[$badge->ID] = ['date' => $date];
-                $badge_dates[$badge->ID] = $date;
+            $tids = get_post_meta($badge->ID, 'tbc_badge_tag_ids', true);
+            if (!is_array($tids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_tag_id', true);
+                $tids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_tag_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                $all_present = $tids && !array_diff(array_map('intval', $tids), $tag_ids);
+                if ($all_present) {
+                    $first_tid = reset($tids);
+                    $first_tid = (int)$first_tid;
+                    $date = $badge_dates[$badge->ID] ?? ($tag_dates[$first_tid] ?? time());
+                    $earned[$badge->ID] = ['date' => $date];
+                    $badge_dates[$badge->ID] = $date;
+                }
+            } else {
+                foreach ($tids as $tid) {
+                    $tid = (int)$tid;
+                    if ($tid && in_array($tid, $tag_ids, true)) {
+                        $date = $badge_dates[$badge->ID] ?? ($tag_dates[$tid] ?? time());
+                        $earned[$badge->ID] = ['date' => $date];
+                        $badge_dates[$badge->ID] = $date;
+                        break;
+                    }
+                }
             }
         }
 
         if ($type === 'brand') {
-            $bid = (int) get_post_meta($badge->ID, 'tbc_badge_brand_id', true);
-            if ($bid && in_array($bid, $brand_ids, true)) {
-                $date = $badge_dates[$badge->ID] ?? ($brand_dates[$bid] ?? time());
-                $earned[$badge->ID] = ['date' => $date];
-                $badge_dates[$badge->ID] = $date;
+            $bids = get_post_meta($badge->ID, 'tbc_badge_brand_ids', true);
+            if (!is_array($bids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_brand_id', true);
+                $bids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_brand_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                $all_present = $bids && !array_diff(array_map('intval', $bids), $brand_ids);
+                if ($all_present) {
+                    $first_bid = reset($bids);
+                    $first_bid = (int)$first_bid;
+                    $date = $badge_dates[$badge->ID] ?? ($brand_dates[$first_bid] ?? time());
+                    $earned[$badge->ID] = ['date' => $date];
+                    $badge_dates[$badge->ID] = $date;
+                }
+            } else {
+                foreach ($bids as $bid) {
+                    $bid = (int)$bid;
+                    if ($bid && in_array($bid, $brand_ids, true)) {
+                        $date = $badge_dates[$badge->ID] ?? ($brand_dates[$bid] ?? time());
+                        $earned[$badge->ID] = ['date' => $date];
+                        $badge_dates[$badge->ID] = $date;
+                        break;
+                    }
+                }
             }
         }
 
@@ -1145,30 +1225,86 @@ function tbc_get_earned_badges($user_id) {
         }
 
         if ($type === 'product') {
-            $pid = (int) get_post_meta($badge->ID, 'tbc_badge_product_id', true);
-            if ($pid && in_array($pid, $product_ids, true)) {
-                $earned[] = $badge->ID;
+            $pids = get_post_meta($badge->ID, 'tbc_badge_product_ids', true);
+            if (!is_array($pids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_product_id', true);
+                $pids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_product_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                if ($pids && !array_diff(array_map('intval', $pids), $product_ids)) {
+                    $earned[] = $badge->ID;
+                }
+            } else {
+                foreach ($pids as $pid) {
+                    if ($pid && in_array((int)$pid, $product_ids, true)) {
+                        $earned[] = $badge->ID;
+                        break;
+                    }
+                }
             }
         }
 
         if ($type === 'category') {
-            $cid = (int) get_post_meta($badge->ID, 'tbc_badge_category_id', true);
-            if ($cid && in_array($cid, $category_ids, true)) {
-                $earned[] = $badge->ID;
+            $cids = get_post_meta($badge->ID, 'tbc_badge_category_ids', true);
+            if (!is_array($cids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_category_id', true);
+                $cids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_category_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                if ($cids && !array_diff(array_map('intval', $cids), $category_ids)) {
+                    $earned[] = $badge->ID;
+                }
+            } else {
+                foreach ($cids as $cid) {
+                    if ($cid && in_array((int)$cid, $category_ids, true)) {
+                        $earned[] = $badge->ID;
+                        break;
+                    }
+                }
             }
         }
 
         if ($type === 'tag') {
-            $tid = (int) get_post_meta($badge->ID, 'tbc_badge_tag_id', true);
-            if ($tid && in_array($tid, $tag_ids, true)) {
-                $earned[] = $badge->ID;
+            $tids = get_post_meta($badge->ID, 'tbc_badge_tag_ids', true);
+            if (!is_array($tids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_tag_id', true);
+                $tids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_tag_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                if ($tids && !array_diff(array_map('intval', $tids), $tag_ids)) {
+                    $earned[] = $badge->ID;
+                }
+            } else {
+                foreach ($tids as $tid) {
+                    if ($tid && in_array((int)$tid, $tag_ids, true)) {
+                        $earned[] = $badge->ID;
+                        break;
+                    }
+                }
             }
         }
 
         if ($type === 'brand') {
-            $bid = (int) get_post_meta($badge->ID, 'tbc_badge_brand_id', true);
-            if ($bid && in_array($bid, $brand_ids, true)) {
-                $earned[] = $badge->ID;
+            $bids = get_post_meta($badge->ID, 'tbc_badge_brand_ids', true);
+            if (!is_array($bids)) {
+                $legacy = get_post_meta($badge->ID, 'tbc_badge_brand_id', true);
+                $bids = $legacy ? [(int)$legacy] : [];
+            }
+            $mode = get_post_meta($badge->ID, 'tbc_badge_brand_mode', true) ?: 'any';
+            if ($mode === 'all') {
+                if ($bids && !array_diff(array_map('intval', $bids), $brand_ids)) {
+                    $earned[] = $badge->ID;
+                }
+            } else {
+                foreach ($bids as $bid) {
+                    if ($bid && in_array((int)$bid, $brand_ids, true)) {
+                        $earned[] = $badge->ID;
+                        break;
+                    }
+                }
             }
         }
 
@@ -1241,10 +1377,30 @@ add_action('add_meta_boxes', function () {
 function tbc_badge_fields_callback($post) {
     $icon = get_post_meta($post->ID, 'tbc_badge_icon', true);
     $type = get_post_meta($post->ID, 'tbc_badge_type', true) ?: 'always';
-    $product = get_post_meta($post->ID, 'tbc_badge_product_id', true);
-    $category = get_post_meta($post->ID, 'tbc_badge_category_id', true);
-    $tag = get_post_meta($post->ID, 'tbc_badge_tag_id', true);
-    $brand = get_post_meta($post->ID, 'tbc_badge_brand_id', true);
+    $product = get_post_meta($post->ID, 'tbc_badge_product_ids', true);
+    if (!is_array($product)) {
+        $legacy = get_post_meta($post->ID, 'tbc_badge_product_id', true);
+        $product = $legacy ? [(int)$legacy] : [];
+    }
+    $category = get_post_meta($post->ID, 'tbc_badge_category_ids', true);
+    if (!is_array($category)) {
+        $legacy = get_post_meta($post->ID, 'tbc_badge_category_id', true);
+        $category = $legacy ? [(int)$legacy] : [];
+    }
+    $tag = get_post_meta($post->ID, 'tbc_badge_tag_ids', true);
+    if (!is_array($tag)) {
+        $legacy = get_post_meta($post->ID, 'tbc_badge_tag_id', true);
+        $tag = $legacy ? [(int)$legacy] : [];
+    }
+    $brand = get_post_meta($post->ID, 'tbc_badge_brand_ids', true);
+    if (!is_array($brand)) {
+        $legacy = get_post_meta($post->ID, 'tbc_badge_brand_id', true);
+        $brand = $legacy ? [(int)$legacy] : [];
+    }
+    $product_mode  = get_post_meta($post->ID, 'tbc_badge_product_mode', true) ?: 'any';
+    $category_mode = get_post_meta($post->ID, 'tbc_badge_category_mode', true) ?: 'any';
+    $tag_mode      = get_post_meta($post->ID, 'tbc_badge_tag_mode', true) ?: 'any';
+    $brand_mode    = get_post_meta($post->ID, 'tbc_badge_brand_mode', true) ?: 'any';
     $spend = get_post_meta($post->ID, 'tbc_badge_spend_threshold', true);
     $xp_threshold = get_post_meta($post->ID, 'tbc_badge_xp_threshold', true);
     $xp = get_post_meta($post->ID, 'tbc_badge_xp', true);
@@ -1290,10 +1446,9 @@ function tbc_badge_fields_callback($post) {
             </td>
         </tr>
         <tr class="tbc-badge-product" style="display:<?php echo $type == 'product' ? 'table-row' : 'none'; ?>;">
-    <th><label for="tbc_badge_product_id">Product</label></th>
+    <th><label for="tbc_badge_product_ids">Product(s)</label></th>
     <td>
-        <select id="tbc_badge_product_id" name="tbc_badge_product_id" data-placeholder="Select a product">
-            <option value="">Select a product</option>
+        <select id="tbc_badge_product_ids" name="tbc_badge_product_ids[]" class="wc-product-search" data-placeholder="Select product(s)" multiple>
             <?php
             $args = array(
                 'post_type'      => 'product',
@@ -1306,7 +1461,7 @@ function tbc_badge_fields_callback($post) {
                 printf(
                     '<option value="%d"%s>%s</option>',
                     $product_post->ID,
-                    selected($product, $product_post->ID, false),
+                    selected(in_array($product_post->ID, $product, true), true, false),
                     esc_html($product_post->post_title)
                 );
             }
@@ -1314,46 +1469,94 @@ function tbc_badge_fields_callback($post) {
         </select>
     </td>
 </tr>
+<tr class="tbc-badge-product" style="display:<?php echo $type == 'product' ? 'table-row' : 'none'; ?>;">
+    <th><label for="tbc_badge_product_mode">Match</label></th>
+    <td>
+        <select id="tbc_badge_product_mode" name="tbc_badge_product_mode">
+            <option value="any" <?php selected($product_mode, 'any'); ?>>Any selected product</option>
+            <option value="all" <?php selected($product_mode, 'all'); ?>>All selected products</option>
+        </select>
+    </td>
+</tr>
         <tr class="tbc-badge-category" style="display:<?php echo $type == 'category' ? 'table-row' : 'none'; ?>;">
-            <th><label for="tbc_badge_category_id">Category</label></th>
+            <th><label for="tbc_badge_category_ids">Category</label></th>
             <td>
-                <select id="tbc_badge_category_id" name="tbc_badge_category_id" class="wc-category-search" data-placeholder="Select a category">
-    <!-- No placeholder option here -->
+                <select id="tbc_badge_category_ids" name="tbc_badge_category_ids[]" class="wc-category-search" data-placeholder="Select category(s)" multiple>
     <?php
     $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]);
     foreach ($terms as $term) {
-        printf('<option value="%d"%s>%s</option>', $term->term_id, selected($category, $term->term_id, false), esc_html($term->name));
+        printf(
+            '<option value="%d"%s>%s</option>',
+            $term->term_id,
+            selected(in_array($term->term_id, $category, true), true, false),
+            esc_html($term->name)
+        );
     }
                 ?>
-            </select>
+        </select>
 
             </td>
         </tr>
-        <tr class="tbc-badge-tag" style="display:<?php echo $type == 'tag' ? 'table-row' : 'none'; ?>;">
-            <th><label for="tbc_badge_tag_id">Product Tag</label></th>
+        <tr class="tbc-badge-category" style="display:<?php echo $type == 'category' ? 'table-row' : 'none'; ?>;">
+            <th><label for="tbc_badge_category_mode">Match</label></th>
             <td>
-                <select id="tbc_badge_tag_id" name="tbc_badge_tag_id" class="wc-tag-search" data-placeholder="Select a tag">
-                    <option value="">Select a tag</option>
+                <select id="tbc_badge_category_mode" name="tbc_badge_category_mode">
+                    <option value="any" <?php selected($category_mode, 'any'); ?>>Any selected category</option>
+                    <option value="all" <?php selected($category_mode, 'all'); ?>>All selected categories</option>
+                </select>
+            </td>
+        </tr>
+        <tr class="tbc-badge-tag" style="display:<?php echo $type == 'tag' ? 'table-row' : 'none'; ?>;">
+            <th><label for="tbc_badge_tag_ids">Product Tag</label></th>
+            <td>
+                <select id="tbc_badge_tag_ids" name="tbc_badge_tag_ids[]" class="wc-tag-search" data-placeholder="Select tag(s)" multiple>
                     <?php
                     $tag_terms = get_terms(['taxonomy' => 'product_tag', 'hide_empty' => false]);
                     foreach ($tag_terms as $term) {
-                        printf('<option value="%d"%s>%s</option>', $term->term_id, selected($tag, $term->term_id, false), esc_html($term->name));
+                        printf(
+                            '<option value="%d"%s>%s</option>',
+                            $term->term_id,
+                            selected(in_array($term->term_id, $tag, true), true, false),
+                            esc_html($term->name)
+                        );
+                    }
+                    ?>
+                </select>
+            </td>
+        </tr>
+        <tr class="tbc-badge-tag" style="display:<?php echo $type == 'tag' ? 'table-row' : 'none'; ?>;">
+            <th><label for="tbc_badge_tag_mode">Match</label></th>
+            <td>
+                <select id="tbc_badge_tag_mode" name="tbc_badge_tag_mode">
+                    <option value="any" <?php selected($tag_mode, 'any'); ?>>Any selected tag</option>
+                    <option value="all" <?php selected($tag_mode, 'all'); ?>>All selected tags</option>
+                </select>
+            </td>
+        </tr>
+        <tr class="tbc-badge-brand" style="display:<?php echo $type == 'brand' ? 'table-row' : 'none'; ?>;">
+            <th><label for="tbc_badge_brand_ids">Brand</label></th>
+            <td>
+                <select id="tbc_badge_brand_ids" name="tbc_badge_brand_ids[]" class="wc-brand-search" data-placeholder="Select brand(s)" multiple>
+                    <?php
+                    $brand_terms = get_terms(['taxonomy' => 'product_brand', 'hide_empty' => false]);
+                    foreach ($brand_terms as $term) {
+                        printf(
+                            '<option value="%d"%s>%s</option>',
+                            $term->term_id,
+                            selected(in_array($term->term_id, $brand, true), true, false),
+                            esc_html($term->name)
+                        );
                     }
                     ?>
                 </select>
             </td>
         </tr>
         <tr class="tbc-badge-brand" style="display:<?php echo $type == 'brand' ? 'table-row' : 'none'; ?>;">
-            <th><label for="tbc_badge_brand_id">Brand</label></th>
+            <th><label for="tbc_badge_brand_mode">Match</label></th>
             <td>
-                <select id="tbc_badge_brand_id" name="tbc_badge_brand_id" class="wc-brand-search" data-placeholder="Select a brand">
-                    <option value="">Select a brand</option>
-                    <?php
-                    $brand_terms = get_terms(['taxonomy' => 'product_brand', 'hide_empty' => false]);
-                    foreach ($brand_terms as $term) {
-                        printf('<option value="%d"%s>%s</option>', $term->term_id, selected($brand, $term->term_id, false), esc_html($term->name));
-                    }
-                    ?>
+                <select id="tbc_badge_brand_mode" name="tbc_badge_brand_mode">
+                    <option value="any" <?php selected($brand_mode, 'any'); ?>>Any selected brand</option>
+                    <option value="all" <?php selected($brand_mode, 'all'); ?>>All selected brands</option>
                 </select>
             </td>
         </tr>
@@ -1430,242 +1633,7 @@ jQuery(function($){
 
         // Re-initialise Select2 only when shown
         if (typeof $.fn.select2 !== 'undefined') {
-            $('#tbc_badge_category_id').select2({
+            $('#tbc_badge_category_ids').select2({
                 width: '100%',
                 placeholder: 'Select a category'
-            });
-            
-            $('#tbc_badge_type').trigger('change');
-            
-        }
-    }
-    if (this.value === 'tag') {
-        $('.tbc-badge-tag').show();
-    }
-    if (this.value === 'brand') {
-        $('.tbc-badge-brand').show();
-    }
-    if (this.value === 'spend') {
-        $('.tbc-badge-spend').show();
-    }
-    if (this.value === 'xp') {
-        $('.tbc-badge-xp-thresh').show();
-        $('#tbc_badge_xp').val(0).prop('disabled', true);
-    } else {
-        $('#tbc_badge_xp').prop('disabled', false);
-    }
-    if (this.value === 'custom') {
-        $('.tbc-badge-custom').show();
-    }
-});
-
-    $('.tbc-upload-badge-icon').on('click',function(e){
-        e.preventDefault();
-        var $input = $('#tbc_badge_icon');
-        var $preview = $('.tbc-badge-media-preview');
-        var frame = wp.media({title:'Select Badge Icon',button:{text:'Use this icon'},multiple:false});
-        frame.on('select',function(){
-            var url = frame.state().get('selection').first().toJSON().url;
-            $input.val(url);
-            $preview.attr('src',url).show();
-        });
-        frame.open();
-    });
-    if(typeof $.fn.select2 !== 'undefined'){
-        $('.wc-product-search').select2({
-            width: '100%',             
-            ajax: {
-                url: tbc_badge_admin.ajax_url,
-                dataType: 'json',
-                delay: 250,
-                data: function(params){
-                    return {
-                        term: params.term,
-                        action: 'woocommerce_json_search_products_and_variations',
-                        security: tbc_badge_admin.search_products_nonce
-                    };
-                },
-                processResults: function(data){
-                    var results = [];
-                    $.each(data, function(id, text){ results.push({id:id, text:text}); });
-                    return {results:results};
-                }
-            },
-            allowClear: true,
-            dropdownParent: $('#tbc_badge_fields')
-        });
-        // Add Select2 to the category/tag/brand selects as well
-        $('.wc-category-search, .wc-tag-search, .wc-brand-search').select2({
-            width: '100%',
-            placeholder: function(){
-                return $(this).data('placeholder') || 'Select an option';
-            }
-        });
-    }
-});
-</script>
-<?php
-}
-
-add_action('admin_enqueue_scripts', function($hook){
-    global $typenow;
-    if($typenow === 'tbc_badge'){
-        if (function_exists('wc_enqueue_js')) {
-            wp_enqueue_script('wc-product-search');
-        }
-        wp_enqueue_script('select2');
-        wp_enqueue_style('select2');
-        wp_enqueue_media();
-        // Localize nonce for product search
-        wp_localize_script('wc-product-search', 'tbc_badge_admin', [
-            'search_products_nonce' => wp_create_nonce('search-products'),
-            'ajax_url' => admin_url('admin-ajax.php')
-        ]);
-    }
-});
-
-add_action('save_post_tbc_badge', function ($post_id) {
-    if (!isset($_POST['tbc_badge_nonce']) || !wp_verify_nonce($_POST['tbc_badge_nonce'], 'tbc_badge_save')) return;
-    $type_val = isset($_POST['tbc_badge_type']) ? sanitize_text_field($_POST['tbc_badge_type']) : '';
-    foreach (['icon','type','product_id','category_id','tag_id','brand_id','spend_threshold','xp_threshold','hint','description','priority','xp','parent_id','custom_code'] as $field) {
-        if (isset($_POST["tbc_badge_$field"])) {
-            // Priority uniqueness enforcement
-            if ($field === 'priority') {
-                $new_priority = intval($_POST["tbc_badge_$field"]);
-                // Find any other badge with this priority
-                $args = [
-                    'post_type' => 'tbc_badge',
-                    'posts_per_page' => -1,
-                    'post__not_in' => [$post_id],
-                    'meta_key' => 'tbc_badge_priority',
-                    'meta_value' => $new_priority,
-                ];
-                $conflicts = get_posts($args);
-                // If conflict, shift priorities of all >= new_priority up by 1
-                if ($conflicts) {
-                    $badges = get_posts([
-                        'post_type' => 'tbc_badge',
-                        'posts_per_page' => -1,
-                        'post__not_in' => [$post_id],
-                        'meta_key' => 'tbc_badge_priority',
-                        'orderby' => 'meta_value_num',
-                        'order' => 'DESC',
-                    ]);
-                    foreach ($badges as $badge) {
-                        $prio = intval(get_post_meta($badge->ID, 'tbc_badge_priority', true));
-                        if ($prio >= $new_priority) {
-                            update_post_meta($badge->ID, 'tbc_badge_priority', $prio + 1);
-                        }
-                    }
-                }
-                update_post_meta($post_id, "tbc_badge_$field", $new_priority);
-            } else if ($field === 'xp') {
-                $xp_val = intval($_POST["tbc_badge_$field"]);
-                if ($type_val === 'xp') {
-                    $xp_val = 0;
-                } elseif ($xp_val < 1) {
-                    $xp_val = 20;
-                }
-                update_post_meta($post_id, "tbc_badge_$field", $xp_val);
-            } else if ($field === 'xp_threshold') {
-                $val = intval($_POST["tbc_badge_$field"]);
-                if ($val < 0) $val = 0;
-                update_post_meta($post_id, "tbc_badge_$field", $val);
-            } else if (in_array($field, ['product_id','category_id','tag_id','brand_id','parent_id'])) {
-                update_post_meta($post_id, "tbc_badge_$field", intval($_POST["tbc_badge_$field"]));
-            } else if ($field === 'custom_code') {
-                update_post_meta($post_id, "tbc_badge_$field", $_POST["tbc_badge_$field"]);
-            } else {
-                update_post_meta($post_id, "tbc_badge_$field", sanitize_text_field($_POST["tbc_badge_$field"]));
-            }
-        } else {
-            delete_post_meta($post_id, "tbc_badge_$field");
-        }
-    }
-}, 10, 1);
-
-
-/** ==== ADMIN LIST: PRIORITY COLUMN, CLICK TO MOVE ==== */
-add_filter('manage_edit-tbc_badge_columns', function($columns) {
-    $columns['priority'] = 'Priority';
-    return $columns;
-});
-add_action('manage_tbc_badge_posts_custom_column', function($column, $post_id){
-    if ($column === 'priority') {
-        $prio = get_post_meta($post_id, 'tbc_badge_priority', true);
-        echo '<span class="badge-priority-val">'.$prio.'</span> ';
-        echo '<a href="'.esc_url(admin_url('edit.php?post_type=tbc_badge&action=up&post='.$post_id)).'" title="Move up">&#x25B2;</a> ';
-        echo '<a href="'.esc_url(admin_url('edit.php?post_type=tbc_badge&action=down&post='.$post_id)).'" title="Move down">&#x25BC;</a>';
-    }
-}, 10, 2);
-add_filter('manage_edit-tbc_badge_sortable_columns', function($cols){
-    $cols['priority'] = 'priority';
-    return $cols;
-});
-// Sort by priority by default
-add_action('pre_get_posts', function($query){
-    if (!is_admin() || $query->get('post_type') !== 'tbc_badge' || !$query->is_main_query()) return;
-    $orderby = $query->get('orderby');
-    if ($orderby === 'priority' || !$orderby) {
-        $query->set('meta_key', 'tbc_badge_priority');
-        $query->set('orderby', 'meta_value_num');
-        $query->set('order', 'ASC');
-    }
-});
-// Click up/down to move
-add_action('admin_init', function(){
-    if(!is_admin() || !isset($_GET['post_type']) || $_GET['post_type'] !== 'tbc_badge') return;
-    if(isset($_GET['action']) && in_array($_GET['action'], ['up','down']) && isset($_GET['post'])){
-        $post_id = intval($_GET['post']);
-        $current = get_post_meta($post_id, 'tbc_badge_priority', true);
-        if ($current === '') $current = 0;
-        $direction = $_GET['action'] === 'up' ? -1 : 1;
-        $swap_with_id = null; $swap_with_prio = null;
-        $badges = get_posts([
-            'post_type' => 'tbc_badge',
-            'posts_per_page' => -1,
-            'meta_key' => 'tbc_badge_priority',
-            'orderby' => 'meta_value_num',
-            'order' => 'ASC'
-        ]);
-        $badges = array_values($badges);
-        foreach ($badges as $i => $b) {
-            if ($b->ID == $post_id) {
-                $swap_with = $badges[$i+$direction] ?? null;
-                if ($swap_with) {
-                    $swap_with_id = $swap_with->ID;
-                    $swap_with_prio = get_post_meta($swap_with_id, 'tbc_badge_priority', true);
-                }
-                break;
-            }
-        }
-        if ($swap_with_id) {
-            update_post_meta($post_id, 'tbc_badge_priority', $swap_with_prio);
-            update_post_meta($swap_with_id, 'tbc_badge_priority', $current);
-        }
-        wp_redirect(remove_query_arg(['action','post']));
-        exit;
-    }
-});
-
-/** ==== OPTIONAL: My Account endpoint (off by default, enable if wanted) ==== */
-if (apply_filters('wc_user_badges_add_account_endpoint', false)) {
-    add_action('init', function () {
-        add_rewrite_endpoint('badges', EP_ROOT | EP_PAGES);
-    });
-    add_filter('query_vars', function ($vars) {
-        $vars[] = 'badges';
-        return $vars;
-    });
-    add_filter('woocommerce_account_menu_items', function ($items) {
-        $items['badges'] = 'My Badges';
-        return $items;
-    });
-    add_action('woocommerce_account_badges_endpoint', function () {
-        echo do_shortcode('[wc_user_badges variation="all"]');
-    });
-    register_activation_hook(__FILE__, function () { flush_rewrite_rules(); });
-    register_deactivation_hook(__FILE__, function () { flush_rewrite_rules(); });
-}
-
-// -- END --
+  
