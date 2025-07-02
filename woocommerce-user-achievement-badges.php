@@ -1711,4 +1711,243 @@ jQuery(function($){
             $('#tbc_badge_category_ids').select2({
                 width: '100%',
                 placeholder: 'Select a category'
-  
+            });
+            
+            $('#tbc_badge_type').trigger('change');
+            
+        }
+    }
+    if (this.value === 'tag') {
+        $('.tbc-badge-tag').show();
+    }
+    if (this.value === 'brand') {
+        $('.tbc-badge-brand').show();
+    }
+    if (this.value === 'spend') {
+        $('.tbc-badge-spend').show();
+    }
+    if (this.value === 'xp') {
+        $('.tbc-badge-xp-thresh').show();
+        $('#tbc_badge_xp').val(0).prop('disabled', true);
+    } else {
+        $('#tbc_badge_xp').prop('disabled', false);
+    }
+    if (this.value === 'custom') {
+        $('.tbc-badge-custom').show();
+    }
+});
+
+    $('.tbc-upload-badge-icon').on('click',function(e){
+        e.preventDefault();
+        var $input = $('#tbc_badge_icon');
+        var $preview = $('.tbc-badge-media-preview');
+        var frame = wp.media({title:'Select Badge Icon',button:{text:'Use this icon'},multiple:false});
+        frame.on('select',function(){
+            var url = frame.state().get('selection').first().toJSON().url;
+            $input.val(url);
+            $preview.attr('src',url).show();
+        });
+        frame.open();
+    });
+    if(typeof $.fn.select2 !== 'undefined'){
+        $('.wc-product-search').select2({
+            width: '100%',             
+            ajax: {
+                url: tbc_badge_admin.ajax_url,
+                dataType: 'json',
+                delay: 250,
+                data: function(params){
+                    return {
+                        term: params.term,
+                        action: 'woocommerce_json_search_products_and_variations',
+                        security: tbc_badge_admin.search_products_nonce
+                    };
+                },
+                processResults: function(data){
+                    var results = [];
+                    $.each(data, function(id, text){ results.push({id:id, text:text}); });
+                    return {results:results};
+                }
+            },
+            allowClear: true,
+            dropdownParent: $('#tbc_badge_fields')
+        });
+        // Add Select2 to the category/tag/brand selects as well
+        $('.wc-category-search, .wc-tag-search, .wc-brand-search').select2({
+            width: '100%',
+            placeholder: function(){
+                return $(this).data('placeholder') || 'Select an option';
+            }
+        });
+    }
+});
+</script>
+<?php
+}
+
+add_action('admin_enqueue_scripts', function($hook){
+    global $typenow;
+    if($typenow === 'tbc_badge'){
+        if (function_exists('wc_enqueue_js')) {
+            wp_enqueue_script('wc-product-search');
+        }
+        wp_enqueue_script('select2');
+        wp_enqueue_style('select2');
+        wp_enqueue_media();
+        // Localize nonce for product search
+        wp_localize_script('wc-product-search', 'tbc_badge_admin', [
+            'search_products_nonce' => wp_create_nonce('search-products'),
+            'ajax_url' => admin_url('admin-ajax.php')
+        ]);
+    }
+});
+
+add_action('save_post_tbc_badge', function ($post_id) {
+    if (!isset($_POST['tbc_badge_nonce']) || !wp_verify_nonce($_POST['tbc_badge_nonce'], 'tbc_badge_save')) return;
+    $type_val = isset($_POST['tbc_badge_type']) ? sanitize_text_field($_POST['tbc_badge_type']) : '';
+    foreach (['icon','type','product_ids','category_ids','tag_ids','brand_ids','product_mode','category_mode','tag_mode','brand_mode','spend_threshold','xp_threshold','hint','description','priority','xp','parent_id','custom_code'] as $field) {
+        if (isset($_POST["tbc_badge_$field"])) {
+            // Priority uniqueness enforcement
+            if ($field === 'priority') {
+                $new_priority = intval($_POST["tbc_badge_$field"]);
+                // Find any other badge with this priority
+                $args = [
+                    'post_type' => 'tbc_badge',
+                    'posts_per_page' => -1,
+                    'post__not_in' => [$post_id],
+                    'meta_key' => 'tbc_badge_priority',
+                    'meta_value' => $new_priority,
+                ];
+                $conflicts = get_posts($args);
+                // If conflict, shift priorities of all >= new_priority up by 1
+                if ($conflicts) {
+                    $badges = get_posts([
+                        'post_type' => 'tbc_badge',
+                        'posts_per_page' => -1,
+                        'post__not_in' => [$post_id],
+                        'meta_key' => 'tbc_badge_priority',
+                        'orderby' => 'meta_value_num',
+                        'order' => 'DESC',
+                    ]);
+                    foreach ($badges as $badge) {
+                        $prio = intval(get_post_meta($badge->ID, 'tbc_badge_priority', true));
+                        if ($prio >= $new_priority) {
+                            update_post_meta($badge->ID, 'tbc_badge_priority', $prio + 1);
+                        }
+                    }
+                }
+                update_post_meta($post_id, "tbc_badge_$field", $new_priority);
+            } else if ($field === 'xp') {
+                $xp_val = intval($_POST["tbc_badge_$field"]);
+                if ($type_val === 'xp') {
+                    $xp_val = 0;
+                } elseif ($xp_val < 1) {
+                    $xp_val = 20;
+                }
+                update_post_meta($post_id, "tbc_badge_$field", $xp_val);
+            } else if ($field === 'xp_threshold') {
+                $val = intval($_POST["tbc_badge_$field"]);
+                if ($val < 0) $val = 0;
+                update_post_meta($post_id, "tbc_badge_$field", $val);
+            } else if (in_array($field, ['product_ids','category_ids','tag_ids','brand_ids'])) {
+                $vals = array_map('intval', (array)$_POST["tbc_badge_$field"]);
+                $vals = array_filter($vals);
+                update_post_meta($post_id, "tbc_badge_$field", $vals);
+            } else if ($field === 'parent_id') {
+                update_post_meta($post_id, "tbc_badge_$field", intval($_POST["tbc_badge_$field"]));
+            } else if ($field === 'custom_code') {
+                update_post_meta($post_id, "tbc_badge_$field", $_POST["tbc_badge_$field"]);
+            } else {
+                update_post_meta($post_id, "tbc_badge_$field", sanitize_text_field($_POST["tbc_badge_$field"]));
+            }
+        } else {
+            delete_post_meta($post_id, "tbc_badge_$field");
+        }
+    }
+}, 10, 1);
+
+
+/** ==== ADMIN LIST: PRIORITY COLUMN, CLICK TO MOVE ==== */
+add_filter('manage_edit-tbc_badge_columns', function($columns) {
+    $columns['priority'] = 'Priority';
+    return $columns;
+});
+add_action('manage_tbc_badge_posts_custom_column', function($column, $post_id){
+    if ($column === 'priority') {
+        $prio = get_post_meta($post_id, 'tbc_badge_priority', true);
+        echo '<span class="badge-priority-val">'.$prio.'</span> ';
+        echo '<a href="'.esc_url(admin_url('edit.php?post_type=tbc_badge&action=up&post='.$post_id)).'" title="Move up">&#x25B2;</a> ';
+        echo '<a href="'.esc_url(admin_url('edit.php?post_type=tbc_badge&action=down&post='.$post_id)).'" title="Move down">&#x25BC;</a>';
+    }
+}, 10, 2);
+add_filter('manage_edit-tbc_badge_sortable_columns', function($cols){
+    $cols['priority'] = 'priority';
+    return $cols;
+});
+// Sort by priority by default
+add_action('pre_get_posts', function($query){
+    if (!is_admin() || $query->get('post_type') !== 'tbc_badge' || !$query->is_main_query()) return;
+    $orderby = $query->get('orderby');
+    if ($orderby === 'priority' || !$orderby) {
+        $query->set('meta_key', 'tbc_badge_priority');
+        $query->set('orderby', 'meta_value_num');
+        $query->set('order', 'ASC');
+    }
+});
+// Click up/down to move
+add_action('admin_init', function(){
+    if(!is_admin() || !isset($_GET['post_type']) || $_GET['post_type'] !== 'tbc_badge') return;
+    if(isset($_GET['action']) && in_array($_GET['action'], ['up','down']) && isset($_GET['post'])){
+        $post_id = intval($_GET['post']);
+        $current = get_post_meta($post_id, 'tbc_badge_priority', true);
+        if ($current === '') $current = 0;
+        $direction = $_GET['action'] === 'up' ? -1 : 1;
+        $swap_with_id = null; $swap_with_prio = null;
+        $badges = get_posts([
+            'post_type' => 'tbc_badge',
+            'posts_per_page' => -1,
+            'meta_key' => 'tbc_badge_priority',
+            'orderby' => 'meta_value_num',
+            'order' => 'ASC'
+        ]);
+        $badges = array_values($badges);
+        foreach ($badges as $i => $b) {
+            if ($b->ID == $post_id) {
+                $swap_with = $badges[$i+$direction] ?? null;
+                if ($swap_with) {
+                    $swap_with_id = $swap_with->ID;
+                    $swap_with_prio = get_post_meta($swap_with_id, 'tbc_badge_priority', true);
+                }
+                break;
+            }
+        }
+        if ($swap_with_id) {
+            update_post_meta($post_id, 'tbc_badge_priority', $swap_with_prio);
+            update_post_meta($swap_with_id, 'tbc_badge_priority', $current);
+        }
+        wp_redirect(remove_query_arg(['action','post']));
+        exit;
+    }
+});
+
+/** ==== OPTIONAL: My Account endpoint (off by default, enable if wanted) ==== */
+if (apply_filters('wc_user_badges_add_account_endpoint', false)) {
+    add_action('init', function () {
+        add_rewrite_endpoint('badges', EP_ROOT | EP_PAGES);
+    });
+    add_filter('query_vars', function ($vars) {
+        $vars[] = 'badges';
+        return $vars;
+    });
+    add_filter('woocommerce_account_menu_items', function ($items) {
+        $items['badges'] = 'My Badges';
+        return $items;
+    });
+    add_action('woocommerce_account_badges_endpoint', function () {
+        echo do_shortcode('[wc_user_badges variation="all"]');
+    });
+    register_activation_hook(__FILE__, function () { flush_rewrite_rules(); });
+    register_deactivation_hook(__FILE__, function () { flush_rewrite_rules(); });
+}
+
+// -- END --
