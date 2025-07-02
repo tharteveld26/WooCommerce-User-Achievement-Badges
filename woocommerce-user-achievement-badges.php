@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.7-Beta
+Version: 1.8.8-Beta
 Author: Aidus
 */
 
@@ -1135,8 +1135,13 @@ function tbc_badge_fields_callback($post) {
     ?>
     <style>
     .tbc-badge-admin-table th { text-align: left; width: 140px; }
-    .tbc-badge-admin-table input[type="text"], .tbc-badge-admin-table input[type="number"], .tbc-badge-admin-table select { width: 100%; }
+    .tbc-badge-admin-table input[type="text"],
+    .tbc-badge-admin-table input[type="number"],
+    .tbc-badge-admin-table select { width: 100%; }
     .tbc-badge-admin-table .tbc-badge-media-preview { max-width: 48px; max-height: 48px; display: block; }
+    /* Make Select2 dropdown behave like a popup */
+    .tbc-select2-dropdown.select2-dropdown { z-index: 99999; }
+    .tbc-select2-dropdown .select2-results__options { max-height: 260px; overflow-y: auto; }
     </style>
     <table class="form-table tbc-badge-admin-table">
         <tr>
@@ -1260,6 +1265,7 @@ function tbc_badge_fields_callback($post) {
             $('.wc-product-search').select2({
                 width: '100%',
                 multiple: true,
+                closeOnSelect: false,
                 ajax: {
                     url: tbc_badge_admin.ajax_url,
                     dataType: 'json',
@@ -1278,12 +1284,14 @@ function tbc_badge_fields_callback($post) {
                     }
                 },
                 allowClear: true,
-                dropdownParent: $('#tbc_badge_fields')
+                dropdownParent: $('body'),
+                dropdownCssClass: 'tbc-select2-dropdown'
             });
             // Add Select2 to the category select as well
             $('.wc-category-search').select2({
                 width: '100%',
                 multiple: true,
+                closeOnSelect: false,
                 ajax: {
                     url: tbc_badge_admin.ajax_url,
                     dataType: 'json',
@@ -1303,7 +1311,9 @@ function tbc_badge_fields_callback($post) {
                 },
                 placeholder: function(){
                     return $(this).data('placeholder') || 'Select a category';
-                }
+                },
+                dropdownParent: $('body'),
+                dropdownCssClass: 'tbc-select2-dropdown'
             });
         }
 });";
