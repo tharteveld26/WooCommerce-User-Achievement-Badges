@@ -2,7 +2,7 @@
 /*
 Plugin Name: WooCommerce User Achievement Badges
 Description: Reward WooCommerce users with achievement badges based on purchase behavior.
-Version: 1.8.3.9-Beta
+Version: 1.8.4
 Author: Aidus
 */
 
@@ -54,6 +54,56 @@ function tbc_badges_get_settings() {
 }
 
 
+/** Import badge unlock data from a CSV file. */
+function tbc_badges_import_csv($file) {
+    if (!file_exists($file)) return;
+    if (($handle = fopen($file, 'r')) === false) return;
+    while (($row = fgetcsv($handle)) !== false) {
+        $user_id  = isset($row[0]) ? intval($row[0]) : 0;
+        $badge_id = isset($row[1]) ? intval($row[1]) : 0;
+        $date     = isset($row[2]) ? intval($row[2]) : time();
+        if (!$user_id || !$badge_id) continue;
+        if (!get_user_by('ID', $user_id)) continue;
+        $post = get_post($badge_id);
+        if (!$post || $post->post_type !== 'tbc_badge') continue;
+        $earned = get_user_meta($user_id, 'tbc_earned_badges', true);
+        if (!is_array($earned)) $earned = [];
+        if (!in_array($badge_id, $earned, true)) {
+            $earned[] = $badge_id;
+        }
+        update_user_meta($user_id, 'tbc_earned_badges', array_map('intval', $earned));
+
+        $dates = get_user_meta($user_id, 'tbc_badge_unlock_dates', true);
+        if (!is_array($dates)) $dates = [];
+        $dates[$badge_id] = $date;
+        update_user_meta($user_id, 'tbc_badge_unlock_dates', $dates);
+    }
+    fclose($handle);
+}
+
+/** Output a CSV of all user badge data for download. */
+function tbc_badges_export_csv() {
+    $filename = 'badge-export-' . date('Ymd') . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=' . $filename);
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['user_id','badge_id','unlock_date']);
+    $users = get_users(['fields' => ['ID']]);
+    foreach ($users as $user) {
+        $badges = get_user_meta($user->ID, 'tbc_earned_badges', true);
+        if (!is_array($badges)) $badges = [];
+        $dates = get_user_meta($user->ID, 'tbc_badge_unlock_dates', true);
+        if (!is_array($dates)) $dates = [];
+        foreach ($badges as $bid) {
+            $date = isset($dates[$bid]) ? $dates[$bid] : '';
+            fputcsv($out, [$user->ID, $bid, $date]);
+        }
+    }
+    fclose($out);
+    exit;
+}
+
+
 add_action('admin_head', function() {
     ?>
     <style>
@@ -95,6 +145,20 @@ add_action('admin_menu', function(){
 });
 function tbc_badge_settings_page() {
     if (!current_user_can('manage_options')) return;
+    if (isset($_POST['tbc_badges_export']) && check_admin_referer('tbc_badges_export')) {
+        tbc_badges_export_csv();
+    }
+    if (isset($_POST['tbc_badges_import']) && check_admin_referer('tbc_badges_import')) {
+        if (!empty($_FILES['csv_file']['tmp_name'])) {
+            $upload = wp_handle_upload($_FILES['csv_file'], ['test_form' => false]);
+            if (empty($upload['error'])) {
+                tbc_badges_import_csv($upload['file']);
+                echo '<div class="updated notice notice-success is-dismissible"><p>Import completed.</p></div>';
+            } else {
+                echo '<div class="error notice is-dismissible"><p>' . esc_html($upload['error']) . '</p></div>';
+            }
+        }
+    }
     $opts = tbc_badges_get_settings();
     if (isset($_POST['tbc_badges_settings_submit'])) {
         check_admin_referer('tbc_badges_settings');
@@ -140,6 +204,17 @@ $opts['xp_bar_text'] = sanitize_hex_color($_POST['xp_bar_text']);
     }
     ?>
     <div class="wrap">
+        <div style="margin-top:15px;margin-bottom:20px;">
+            <form method="post" enctype="multipart/form-data" style="display:inline-block;margin-right:20px;">
+                <?php wp_nonce_field('tbc_badges_import'); ?>
+                <input type="file" name="csv_file" accept=".csv" required>
+                <input type="submit" name="tbc_badges_import" class="button" value="Import CSV">
+            </form>
+            <form method="post" style="display:inline-block;">
+                <?php wp_nonce_field('tbc_badges_export'); ?>
+                <input type="submit" name="tbc_badges_export" class="button" value="Export CSV">
+            </form>
+        </div>
         <h2>Badge Display Settings</h2>
         <form method="post">
             <?php wp_nonce_field('tbc_badges_settings'); ?>
