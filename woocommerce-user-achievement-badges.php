@@ -845,6 +845,8 @@ function tbc_get_earned_badges_with_dates($user_id) {
 
     $product_ids = [];
     $category_ids = [];
+    $tag_ids = [];
+    $brand_ids = [];
     $badge_dates = get_user_meta($user_id, 'tbc_badge_unlock_dates', true);
     if (!is_array($badge_dates)) $badge_dates = [];
 
@@ -869,14 +871,30 @@ function tbc_get_earned_badges_with_dates($user_id) {
 
             if ($product->is_type('variation')) {
                 $parent_id = $product->get_parent_id();
-                $cats = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'ids']);
+                $cats  = wp_get_post_terms($parent_id, 'product_cat', ['fields' => 'ids']);
+                $tags  = wp_get_post_terms($parent_id, 'product_tag', ['fields' => 'ids']);
+                $brands = wp_get_post_terms($parent_id, 'product_brand', ['fields' => 'ids']);
             } else {
-                $cats = wp_get_post_terms($pid, 'product_cat', ['fields' => 'ids']);
+                $cats  = wp_get_post_terms($pid, 'product_cat', ['fields' => 'ids']);
+                $tags  = wp_get_post_terms($pid, 'product_tag', ['fields' => 'ids']);
+                $brands = wp_get_post_terms($pid, 'product_brand', ['fields' => 'ids']);
             }
             foreach ($cats as $cat_id) {
                 $category_ids[] = (int) $cat_id;
                 if (!isset($category_dates[$cat_id]) || $order_date < $category_dates[$cat_id]) {
                     $category_dates[$cat_id] = $order_date;
+                }
+            }
+            foreach ($tags as $tag_id) {
+                $tag_ids[] = (int) $tag_id;
+                if (!isset($tag_dates[$tag_id]) || $order_date < $tag_dates[$tag_id]) {
+                    $tag_dates[$tag_id] = $order_date;
+                }
+            }
+            foreach ($brands as $brand_id) {
+                $brand_ids[] = (int) $brand_id;
+                if (!isset($brand_dates[$brand_id]) || $order_date < $brand_dates[$brand_id]) {
+                    $brand_dates[$brand_id] = $order_date;
                 }
             }
             $total_spend += $item->get_total();
