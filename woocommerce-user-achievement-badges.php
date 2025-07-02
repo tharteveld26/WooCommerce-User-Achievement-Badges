@@ -838,8 +838,18 @@ function tbc_get_earned_badges_with_dates($user_id) {
 
     $product_ids = [];
     $category_ids = [];
-    $badge_dates = get_user_meta($user_id, 'tbc_badge_unlock_dates', true);
-    if (!is_array($badge_dates)) $badge_dates = [];
+    $badge_xp = [];
+    foreach ($badges as $b) {
+        $val = (int)get_post_meta($b->ID, 'tbc_badge_xp', true);
+        if ($val <= 0) $val = 20;
+        $badge_xp[$b->ID] = $val;
+    }
+    $unlocked_ids = get_user_meta($user_id, 'tbc_badge_unlock_dates', true);
+    if (!is_array($unlocked_ids)) $unlocked_ids = [];
+    $user_xp_total = 0;
+    foreach ($unlocked_ids as $bid => $dt) {
+        if (isset($badge_xp[$bid])) $user_xp_total += $badge_xp[$bid];
+    }
 
     // Map product and category to earliest unlocked date
     $product_dates = [];
@@ -884,6 +894,7 @@ function tbc_get_earned_badges_with_dates($user_id) {
             $date = $badge_dates[$badge->ID] ?? strtotime(get_userdata($user_id)->user_registered);
             $earned[$badge->ID] = ['date' => $date];
             $badge_dates[$badge->ID] = $date;
+            $user_xp_total += $badge_xp[$badge->ID];
         }
 
         if ($type === 'product') {
@@ -903,6 +914,7 @@ function tbc_get_earned_badges_with_dates($user_id) {
                 }
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
+                $user_xp_total += $badge_xp[$badge->ID];
             }
         }
 
@@ -923,6 +935,7 @@ function tbc_get_earned_badges_with_dates($user_id) {
                 }
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
+                $user_xp_total += $badge_xp[$badge->ID];
             }
         }
 
@@ -942,6 +955,27 @@ function tbc_get_earned_badges_with_dates($user_id) {
                 }
                 $earned[$badge->ID] = ['date' => $date];
                 $badge_dates[$badge->ID] = $date;
+                $user_xp_total += $badge_xp[$badge->ID];
+            }
+        }
+        if ($type === 'xp') {
+            $req = intval(get_post_meta($badge->ID, 'tbc_badge_xp_threshold', true));
+            if ($req && $user_xp_total >= $req) {
+                $date = $badge_dates[$badge->ID] ?? time();
+                $earned[$badge->ID] = ['date' => $date];
+                $badge_dates[$badge->ID] = $date;
+                $user_xp_total += $badge_xp[$badge->ID];
+            }
+        }
+        if ($type === 'json') {
+            $json = get_post_meta($badge->ID, 'tbc_badge_json', true);
+            $data = $json ? json_decode($json, true) : null;
+            $unlock = apply_filters('tbc_badge_json_evaluate', false, $data, $user_id, $badge->ID);
+            if ($unlock) {
+                $date = $badge_dates[$badge->ID] ?? time();
+                $earned[$badge->ID] = ['date' => $date];
+                $badge_dates[$badge->ID] = $date;
+                $user_xp_total += $badge_xp[$badge->ID];
             }
         }
     }
@@ -1063,6 +1097,7 @@ function tbc_get_earned_badges($user_id) {
 
         if ($type === 'always') {
             $earned[] = $badge->ID;
+            $user_xp_total += $badge_xp[$badge->ID];
         }
 
         if ($type === 'product') {
@@ -1070,6 +1105,7 @@ function tbc_get_earned_badges($user_id) {
             $pids = array_filter(array_map('intval', (array)$pids));
             if ($pids && array_intersect($pids, $product_ids)) {
                 $earned[] = $badge->ID;
+                $user_xp_total += $badge_xp[$badge->ID];
             }
         }
 
@@ -1078,6 +1114,7 @@ function tbc_get_earned_badges($user_id) {
             $cids = array_filter(array_map('intval', (array)$cids));
             if ($cids && array_intersect($cids, $category_ids)) {
                 $earned[] = $badge->ID;
+                $user_xp_total += $badge_xp[$badge->ID];
             }
         }
 
@@ -1085,6 +1122,23 @@ function tbc_get_earned_badges($user_id) {
             $thresh = floatval(get_post_meta($badge->ID, 'tbc_badge_spend_threshold', true));
             if ($thresh && $total_spend >= $thresh) {
                 $earned[] = $badge->ID;
+                $user_xp_total += $badge_xp[$badge->ID];
+            }
+        }
+        if ($type === 'xp') {
+            $req = intval(get_post_meta($badge->ID, 'tbc_badge_xp_threshold', true));
+            if ($req && $user_xp_total >= $req) {
+                $earned[] = $badge->ID;
+                $user_xp_total += $badge_xp[$badge->ID];
+            }
+        }
+        if ($type === 'json') {
+            $json = get_post_meta($badge->ID, 'tbc_badge_json', true);
+            $data = $json ? json_decode($json, true) : null;
+            $unlock = apply_filters('tbc_badge_json_evaluate', false, $data, $user_id, $badge->ID);
+            if ($unlock) {
+                $earned[] = $badge->ID;
+                $user_xp_total += $badge_xp[$badge->ID];
             }
         }
     }
@@ -1125,6 +1179,8 @@ function tbc_badge_fields_callback($post) {
     $category = get_post_meta($post->ID, 'tbc_badge_category_id', true);
     $category_ids = is_array($category) ? array_map('intval', $category) : ($category ? [intval($category)] : []);
     $spend = get_post_meta($post->ID, 'tbc_badge_spend_threshold', true);
+    $xp_threshold = get_post_meta($post->ID, 'tbc_badge_xp_threshold', true);
+    $json_rule = get_post_meta($post->ID, 'tbc_badge_json', true);
     $xp = get_post_meta($post->ID, 'tbc_badge_xp', true);
     if ($xp === '' || $xp === false) $xp = 20;
     $hint = get_post_meta($post->ID, 'tbc_badge_hint', true);
@@ -1160,6 +1216,8 @@ function tbc_badge_fields_callback($post) {
                     <option value="product" <?php selected($type, 'product'); ?>>By Product</option>
                     <option value="category" <?php selected($type, 'category'); ?>>By Category</option>
                     <option value="spend" <?php selected($type, 'spend'); ?>>By Spend</option>
+                    <option value="xp" <?php selected($type, 'xp'); ?>>By XP Earned</option>
+                    <option value="json" <?php selected($type, 'json'); ?>>Custom JSON</option>
                 </select>
             </td>
         </tr>
@@ -1197,6 +1255,19 @@ function tbc_badge_fields_callback($post) {
             <th><label for="tbc_badge_spend_threshold">Spend Threshold</label></th>
             <td>
                 <input type="number" step="0.01" name="tbc_badge_spend_threshold" id="tbc_badge_spend_threshold" value="<?php echo esc_attr($spend); ?>" min="0" />
+            </td>
+        </tr>
+        <tr class="tbc-badge-xp" style="display:<?php echo $type == 'xp' ? 'table-row' : 'none'; ?>;">
+            <th><label for="tbc_badge_xp_threshold">XP Required</label></th>
+            <td>
+                <input type="number" step="1" min="1" name="tbc_badge_xp_threshold" id="tbc_badge_xp_threshold" value="<?php echo esc_attr($xp_threshold); ?>" />
+            </td>
+        </tr>
+        <tr class="tbc-badge-json" style="display:<?php echo $type == 'json' ? 'table-row' : 'none'; ?>;">
+            <th><label for="tbc_badge_json">JSON Logic</label></th>
+            <td>
+                <textarea name="tbc_badge_json" id="tbc_badge_json" rows="3" style="width:100%;"><?php echo esc_textarea($json_rule); ?></textarea>
+                <p class="description">Result evaluated via the <code>tbc_badge_json_evaluate</code> filter.</p>
             </td>
         </tr>
         <tr>
@@ -1242,10 +1313,12 @@ function tbc_badge_fields_callback($post) {
     $tbc_badge_js = "jQuery(function($){
         var $typeField = $('#tbc_badge_type');
         function updateFields(){
-            $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend').hide();
+            $('.tbc-badge-product, .tbc-badge-category, .tbc-badge-spend, .tbc-badge-xp, .tbc-badge-json').hide();
             if($typeField.val()==='product') $('.tbc-badge-product').css('display','table-row');
             if($typeField.val()==='category') $('.tbc-badge-category').css('display','table-row');
             if($typeField.val()==='spend') $('.tbc-badge-spend').css('display','table-row');
+            if($typeField.val()==='xp') $('.tbc-badge-xp').css('display','table-row');
+            if($typeField.val()==='json') $('.tbc-badge-json').css('display','table-row');
         }
         $typeField.on('change', updateFields);
         updateFields();
@@ -1283,10 +1356,11 @@ function tbc_badge_fields_callback($post) {
                         return {results:results};
                     }
                 },
+                placeholder: function(){ return $(this).data('placeholder') || 'Select a product'; },
                 allowClear: true,
                 dropdownParent: $('body'),
                 dropdownCssClass: 'tbc-select2-dropdown'
-            });
+            }).trigger('change');
             // Add Select2 to the category select as well
             $('.wc-category-search').select2({
                 width: '100%',
@@ -1314,7 +1388,7 @@ function tbc_badge_fields_callback($post) {
                 },
                 dropdownParent: $('body'),
                 dropdownCssClass: 'tbc-select2-dropdown'
-            });
+            }).trigger('change');
         }
 });";
     if(function_exists('wc_enqueue_js')){
@@ -1345,7 +1419,7 @@ add_action('admin_enqueue_scripts', function($hook){
 
 add_action('save_post_tbc_badge', function ($post_id) {
     if (!isset($_POST['tbc_badge_nonce']) || !wp_verify_nonce($_POST['tbc_badge_nonce'], 'tbc_badge_save')) return;
-    foreach (['icon','type','product_id','category_id','spend_threshold','hint','description','priority','xp','parent_id'] as $field) {
+    foreach (['icon','type','product_id','category_id','spend_threshold','xp_threshold','json','hint','description','priority','xp','parent_id'] as $field) {
         if (isset($_POST["tbc_badge_$field"])) {
             // Priority uniqueness enforcement
             if ($field === 'priority') {
@@ -1387,6 +1461,11 @@ add_action('save_post_tbc_badge', function ($post_id) {
             } else if ($field === 'category_id') {
                 $vals = array_map('intval', (array)$_POST["tbc_badge_$field"]);
                 update_post_meta($post_id, "tbc_badge_$field", $vals);
+            } else if ($field === 'xp_threshold') {
+                $val = intval($_POST["tbc_badge_$field"]);
+                update_post_meta($post_id, "tbc_badge_$field", $val);
+            } else if ($field === 'json') {
+                update_post_meta($post_id, "tbc_badge_$field", wp_kses_post($_POST["tbc_badge_$field"]));
             } else {
                 update_post_meta($post_id, "tbc_badge_$field", sanitize_text_field($_POST["tbc_badge_$field"]));
             }
